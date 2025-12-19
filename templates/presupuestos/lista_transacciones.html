@@ -1,0 +1,86 @@
+{% extends 'presupuestos/base.html' %}
+{% load humanize %}
+
+{% block title %}Transacciones - {{ presupuesto.nombre }}{% endblock %}
+
+{% block content %}
+<main class="container mx-auto p-4 sm:p-6 lg:p-8">
+    <section class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 border-b pb-3">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-900">Historial de Transacciones</h1>
+                <p class="text-xl text-indigo-600 font-semibold">Presupuesto: {{ presupuesto.nombre }}</p>
+                <p class="text-sm text-gray-500 mt-1">Total Pagado: <span class="font-bold text-green-700">${{ presupuesto.total_transacciones|intcomma }}</span></p>
+            </div>
+            <div class="mt-4 md:mt-0 flex space-x-3">
+                <a href="{% url 'presupuestos:detalle' presupuesto.pk %}" class="btn-action bg-gray-500 hover:bg-gray-600">
+                    ← Volver al Presupuesto
+                </a>
+                {% if presupuesto.estado == 'cerrado' %}
+                <a href="{% url 'presupuestos:registrar_transaccion' presupuesto.pk %}" class="btn-action bg-indigo-600 hover:bg-indigo-700">
+                    + Registrar Nueva
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if page_obj.object_list %}
+        <div class="overflow-x-auto bg-white rounded-xl shadow-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-indigo-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Pago</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ítem Presupuesto</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrado Por</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for transaccion in page_obj.object_list %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ transaccion.fecha_pago|date:"d M Y" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <span class="font-semibold">{{ transaccion.item_presupuesto.nombre }}</span>
+                            <p class="text-xs text-gray-500">Monto Original: ${{ transaccion.item_presupuesto.monto|intcomma }}</p>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ transaccion.get_metodo_pago_display }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ transaccion.referencia|default_if_none:"N/A" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-700 text-right">
+                            ${{ transaccion.monto|intcomma }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ transaccion.usuario.username|default_if_none:"Sistema/No Logueado" }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">No hay transacciones registradas para este presupuesto.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% include 'presupuestos/pagination.html' %} <!-- Asumiendo que tienes un template de paginación -->
+
+        {% else %}
+        <div class="bg-white rounded-xl shadow-lg p-10 text-center">
+            <p class="text-lg text-gray-600">Este presupuesto aún no tiene transacciones registradas.</p>
+            {% if presupuesto.estado == 'cerrado' %}
+            <a href="{% url 'presupuestos:registrar_transaccion' presupuesto.pk %}" class="mt-4 inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150">
+                Registrar la primera Transacción
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

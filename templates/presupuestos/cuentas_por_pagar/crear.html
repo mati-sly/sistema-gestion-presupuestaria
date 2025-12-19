@@ -1,0 +1,835 @@
+{% extends 'presupuestos/base.html' %}
+{% load static %}
+
+{% block title %}Agregar Cuenta por Pagar{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/cuentas_por_pagar.css' %}">
+<style>
+    .char-counter {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-align: right;
+        margin-top: 0.25rem;
+    }
+    .char-counter.warning {
+        color: #f59e0b;
+    }
+    .char-counter.error {
+        color: #ef4444;
+    }
+    .error-border {
+        border-color: #ef4444 !important;
+    }
+    .progress-bar {
+        height: 6px;
+        background: #e5e7eb;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    .progress-fill {
+        height: 100%;
+        background: #10b981;
+        width: 0%;
+        transition: width 0.3s;
+    }
+    .progress-info {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.25rem;
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container">
+    <div class="creation-card">
+        <div class="header-form">
+            <h1>Agregar Cuenta por Pagar</h1>
+            <p style="color: #6b7280; margin-top: 0.5rem;">Complete los datos de la nueva cuenta por pagar</p>
+        </div>
+
+        <!-- Mensajes -->
+        {% if messages %}
+        <div class="messages" style="margin-bottom: 1.5rem;">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="padding: 1rem; border-radius: 8px; background: #fee; color: #c00; margin-bottom: 0.5rem;">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="POST" id="cuentaForm">
+            {% csrf_token %}
+            
+            <!-- Número de Factura -->
+            <div class="form-group">
+                <label for="{{ form.numero_factura.id_for_label }}" class="form-label">
+                    Número de Factura *
+                </label>
+                {{ form.numero_factura }}
+                <div class="char-counter" data-field="numero_factura">
+                    <span class="current">0</span>/50 caracteres
+                </div>
+                {% if form.numero_factura.errors %}
+                <div class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.numero_factura.errors }}
+                </div>
+                {% endif %}
+                <div id="numeroFacturaError" class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: none;">
+                    El número de factura debe tener menos de 50 caracteres.
+                </div>
+            </div>
+            
+            <!-- Nombre del Proveedor -->
+            <div class="form-group">
+                <label for="{{ form.nombre_proveedor.id_for_label }}" class="form-label">
+                    Nombre del Proveedor *
+                </label>
+                {{ form.nombre_proveedor }}
+                <div class="char-counter" data-field="nombre_proveedor">
+                    <span class="current">0</span>/50 caracteres
+                </div>
+                {% if form.nombre_proveedor.errors %}
+                <div class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.nombre_proveedor.errors }}
+                </div>
+                {% endif %}
+                <div id="nombreProveedorError" class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: none;">
+                    El nombre del proveedor debe tener menos de 50 caracteres.
+                </div>
+            </div>
+
+            <!-- RUT Proveedor -->
+            <div class="form-group">
+                <label for="{{ form.rut_proveedor.id_for_label }}" class="form-label">
+                    RUT Proveedor *
+                </label>
+                {{ form.rut_proveedor }}
+                {% if form.rut_proveedor.errors %}
+                <div class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.rut_proveedor.errors }}
+                </div>
+                {% endif %}
+                <small style="display: block; color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
+                    Formato: XX.XXX.XXX-X (Solo se permiten dígitos y la letra 'K')
+                </small>
+            </div>
+
+            <!-- FECHA DE EMISIÓN -->
+            <div class="form-group">
+                <label for="{{ form.fecha_emision.id_for_label }}" class="form-label">
+                    Fecha de Emisión *
+                </label>
+                {{ form.fecha_emision }}
+                {% if form.fecha_emision.errors %}
+                <div class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.fecha_emision.errors }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Monto -->
+            <div class="form-group">
+                <label for="{{ form.monto.id_for_label }}" class="form-label">
+                    Monto * <span style="color: #6b7280; font-size: 0.9rem;">(Máximo: $10.000.000)</span>
+                </label>
+                {{ form.monto }}
+                
+                <!-- Barra de progreso para el monto -->
+                <div id="montoProgressContainer" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="montoProgressFill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="montoPercentage">0%</span>
+                        <span id="montoLimit">Límite: $10000000</span>
+                    </div>
+                </div>
+                
+                <!-- Mensaje de error para validación JavaScript -->
+                <div id="montoError" class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: none;">
+                    El monto no puede exceder los 10 millones (10.000.000)
+                </div>
+                
+                {% if form.monto.errors %}
+                <div class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.monto.errors }}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Fecha Límite -->
+            <div class="form-group">
+                <label for="{{ form.fecha_limite.id_for_label }}" class="form-label">
+                    Fecha Límite de Pago *
+                </label>
+                {{ form.fecha_limite }}
+                {% if form.fecha_limite.errors %}
+                <div class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.fecha_limite.errors }}
+                </div>
+                {% endif %}
+                <!-- NOTA DE FECHA CORREGIDA -->
+                <small style="display: block; color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
+                    Fecha máxima acordada para realizar el pago.
+                </small>
+            </div>
+
+            <!-- Descripción -->
+            <div class="form-group">
+                <label for="{{ form.descripcion.id_for_label }}" class="form-label">
+                    Descripción
+                </label>
+                {{ form.descripcion }}
+                <div class="char-counter" data-field="descripcion">
+                    <span class="current">0</span>/50 caracteres
+                </div>
+                {% if form.descripcion.errors %}
+                <div class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {{ form.descripcion.errors }}
+                </div>
+                {% endif %}
+                <div id="descripcionError" class="error-message" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: none;">
+                    La descripción debe tener menos de 50 caracteres.
+                </div>
+                <small style="display: block; color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
+                    Descripción detallada de la cuenta por pagar
+                </small>
+            </div>
+            
+            <!-- Botones de acción -->
+            <div class="form-actions">
+                <a href="{% url 'presupuestos:lista_cuentas' %}" class="back-button">
+                    CANCELAR
+                </a>
+                <button type="submit" class="save-button" id="submitButton">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px; display: inline-block; vertical-align: middle;">
+                        <path d="M20 6L9 17l-5-5"></path>
+                    </svg>
+                    CREAR CUENTA
+                </button>
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Obtiene el ID del campo RUT directamente del formulario de Django
+const rutInputId = '{{ form.rut_proveedor.id_for_label }}';
+
+// ============================
+// FUNCIONES DE VALIDACIÓN RUT
+// ============================
+
+/**
+ * Formatea el valor del RUT con puntos y guion (e.g., 12.345.678-K).
+ * @param {HTMLInputElement} rutInput - El elemento input del RUT.
+ */
+function formatRUT(rutInput) {
+    // 1. Limpiar el valor: dejar solo dígitos y 'K' (mayúsculas o minúsculas)
+    let value = rutInput.value.replace(/[^0-9kK]/g, '').toUpperCase();
+    let formattedValue = '';
+
+    if (value.length > 1) {
+        // 2. Separar el dígito verificador (DV)
+        let dv = value.slice(-1);
+        let num = value.slice(0, -1);
+
+        // 3. Formatear la parte numérica con puntos (e.g., 12345678 -> 12.345.678)
+        let parts = [];
+        while (num.length > 3) {
+            parts.unshift(num.slice(-3));
+            num = num.slice(0, -3);
+        }
+        parts.unshift(num);
+
+        // 4. Reconstruir el RUT: XXX.XXX.XXX-DV
+        formattedValue = parts.join('.') + '-' + dv;
+    } else {
+        formattedValue = value; // Si es muy corto, no formatear
+    }
+
+    rutInput.value = formattedValue;
+}
+
+// ==================================
+// FUNCIONES DE CONTADOR DE CARACTERES
+// ==================================
+
+/**
+ * Actualiza el contador de caracteres para un campo
+ */
+function updateCharCounter(input, counterElement) {
+    const value = input.value;
+    const length = value.length;
+    const currentSpan = counterElement.querySelector('.current');
+    
+    currentSpan.textContent = length;
+    
+    // Cambiar color según la longitud
+    if (length >= 50) {
+        counterElement.classList.add('error');
+        counterElement.classList.remove('warning');
+        input.classList.add('error-border');
+    } else if (length >= 40) {
+        counterElement.classList.add('warning');
+        counterElement.classList.remove('error');
+        input.classList.remove('error-border');
+    } else {
+        counterElement.classList.remove('warning', 'error');
+        input.classList.remove('error-border');
+    }
+}
+
+/**
+ * Valida la longitud de un campo
+ */
+function validateFieldLength(input, maxLength = 50) {
+    const value = input.value.trim();
+    const fieldName = input.id || input.name;
+    const errorElement = document.getElementById(`${fieldName}Error`);
+    
+    if (value.length >= maxLength) {
+        if (errorElement) {
+            errorElement.style.display = 'block';
+        }
+        input.classList.add('error-border');
+        return false;
+    } else {
+        if (errorElement) {
+            errorElement.style.display = 'none';
+        }
+        input.classList.remove('error-border');
+        return true;
+    }
+}
+
+/**
+ * Valida todos los campos de texto del formulario
+ */
+function validateAllTextFields() {
+    const textFields = [
+        'numero_factura',
+        'nombre_proveedor', 
+        'descripcion'
+    ];
+    
+    let isValid = true;
+    
+    textFields.forEach(fieldName => {
+        const field = document.getElementById(`id_${fieldName}`);
+        if (field && !validateFieldLength(field, 50)) {
+            isValid = false;
+        }
+    });
+    
+    return isValid;
+}
+
+// ==================================
+// FUNCIONES DE VALIDACIÓN DE MONTO
+// ==================================
+
+/**
+ * Valida que el valor sea un número válido
+ */
+function esNumeroValido(valor) {
+    // Permitir números enteros y decimales con punto
+    return /^\d+(\.\d{1,2})?$/.test(valor);
+}
+
+/**
+ * Convierte un valor a número
+ */
+function parseMontoValue(value) {
+    // Solo aceptar números y punto decimal
+    const cleanValue = value.toString().replace(/[^\d.]/g, '');
+    const parsed = parseFloat(cleanValue);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Valida el monto (máximo 10 millones)
+ */
+function validarMonto(input) {
+    const valor = input.value;
+    const monto = parseMontoValue(valor);
+    const MAX_MONTO = 10000000;
+    const montoError = document.getElementById('montoError');
+    
+    // Validar formato
+    if (!esNumeroValido(valor)) {
+        if (montoError) {
+            montoError.textContent = 'Formato inválido. Use solo números y punto para decimales (ej: 1000000 o 1000000.50)';
+            montoError.style.display = 'block';
+        }
+        input.classList.add('error-border');
+        return false;
+    }
+    
+    // Validar que no sea negativo
+    if (monto < 0) {
+        if (montoError) {
+            montoError.textContent = 'El monto no puede ser negativo';
+            montoError.style.display = 'block';
+        }
+        input.classList.add('error-border');
+        return false;
+    }
+    
+    // Validar que no exceda 10 millones
+    if (monto > MAX_MONTO) {
+        if (montoError) {
+            montoError.textContent = `El monto no puede exceder los 10 millones. Máximo permitido: ${MAX_MONTO.toLocaleString('es-CL')}`;
+            montoError.style.display = 'block';
+        }
+        input.classList.add('error-border');
+        return false;
+    }
+    
+    // Validar que sea mayor a 0
+    if (monto === 0) {
+        if (montoError) {
+            montoError.textContent = 'El monto debe ser mayor a 0';
+            montoError.style.display = 'block';
+        }
+        input.classList.add('error-border');
+        return false;
+    }
+    
+    // Si pasa todas las validaciones
+    if (montoError) {
+        montoError.style.display = 'none';
+    }
+    input.classList.remove('error-border');
+    
+    return true;
+}
+
+/**
+ * Actualiza la barra de progreso del monto
+ */
+function actualizarBarraProgreso(monto) {
+    const montoProgressContainer = document.getElementById('montoProgressContainer');
+    const montoProgressFill = document.getElementById('montoProgressFill');
+    const montoPercentage = document.getElementById('montoPercentage');
+    
+    if (!montoProgressContainer || !montoProgressFill || !montoPercentage) return;
+    
+    const MAX_MONTO = 10000000;
+    const porcentaje = Math.min((monto / MAX_MONTO) * 100, 100);
+    
+    // Mostrar contenedor si hay monto
+    if (monto > 0) {
+        montoProgressContainer.style.display = 'block';
+    } else {
+        montoProgressContainer.style.display = 'none';
+    }
+    
+    // Actualizar barra
+    montoProgressFill.style.width = `${porcentaje}%`;
+    
+    // Cambiar color según porcentaje
+    if (porcentaje >= 100) {
+        montoProgressFill.style.background = '#ef4444'; // Rojo (en el límite exacto)
+    } else if (porcentaje >= 90) {
+        montoProgressFill.style.background = '#f59e0b'; // Amarillo
+    } else {
+        montoProgressFill.style.background = '#10b981'; // Verde
+    }
+    
+    // Actualizar porcentaje
+    montoPercentage.textContent = `${porcentaje.toFixed(1)}%`;
+    
+    // Actualizar texto del límite
+    document.getElementById('montoLimit').textContent = `Límite: ${MAX_MONTO.toLocaleString('es-CL')}`;
+}
+
+/**
+ * Formatea visualmente el monto para mostrar al usuario
+ */
+function formatearVisualmente(input) {
+    const cursorPos = input.selectionStart;
+    let value = input.value;
+    
+    // Solo permitir números y punto decimal
+    value = value.replace(/[^\d.]/g, '');
+    
+    // Si hay más de un punto, eliminar extras
+    const dotCount = (value.match(/\./g) || []).length;
+    if (dotCount > 1) {
+        // Mantener solo el primer punto (para decimales)
+        const parts = value.split('.');
+        value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Si hay punto decimal, limitar a 2 decimales
+    if (value.includes('.')) {
+        const parts = value.split('.');
+        if (parts[1].length > 2) {
+            parts[1] = parts[1].substring(0, 2);
+            value = parts[0] + '.' + parts[1];
+        }
+    }
+    
+    // Actualizar valor si cambió
+    if (value !== input.value) {
+        input.value = value;
+        
+        // Ajustar posición del cursor
+        const diff = value.length - input.value.length;
+        const newCursorPos = Math.max(0, cursorPos + diff);
+        setTimeout(() => {
+            input.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+    }
+    
+    return value;
+}
+
+// ==================================
+// VALIDACIÓN DE FECHAS
+// ==================================
+
+function validarFechas() {
+    const fechaEmisionInput = document.getElementById('{{ form.fecha_emision.id_for_label }}');
+    const fechaLimiteInput = document.getElementById('{{ form.fecha_limite.id_for_label }}');
+    
+    if (!fechaEmisionInput || !fechaLimiteInput) return true;
+    
+    if (fechaEmisionInput.value && fechaLimiteInput.value) {
+        const fechaEmision = new Date(fechaEmisionInput.value);
+        const fechaLimite = new Date(fechaLimiteInput.value);
+        
+        if (fechaLimite < fechaEmision) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Fecha inválida',
+                    text: 'La fecha límite no puede ser anterior a la fecha de emisión',
+                    icon: 'warning',
+                    confirmButtonColor: '#f59e0b'
+                });
+            }
+            fechaLimiteInput.classList.add('error-border');
+            return false;
+        } else {
+            fechaLimiteInput.classList.remove('error-border');
+        }
+    }
+    
+    return true;
+}
+
+// ==================================
+// INICIALIZACIÓN Y EVENTOS
+// ==================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Configuración del formateador de RUT
+    const rutInput = document.getElementById(rutInputId);
+
+    if (rutInput) {
+        // Ejecutar la función de formato en cada pulsación de tecla
+        rutInput.addEventListener('input', function() {
+            formatRUT(this);
+        });
+        
+        // Ejecutar la función de formato al perder el foco
+        rutInput.addEventListener('blur', function() {
+            formatRUT(this);
+        });
+    }
+
+    // 2. Configurar contadores de caracteres
+    const textFieldsToMonitor = ['numero_factura', 'nombre_proveedor', 'descripcion'];
+    
+    textFieldsToMonitor.forEach(fieldName => {
+        const inputField = document.getElementById(`id_${fieldName}`);
+        const counterElement = document.querySelector(`.char-counter[data-field="${fieldName}"]`);
+        
+        if (inputField && counterElement) {
+            // Configurar maxlength
+            inputField.setAttribute('maxlength', '50');
+            
+            // Inicializar contador
+            updateCharCounter(inputField, counterElement);
+            
+            // Actualizar en tiempo real
+            inputField.addEventListener('input', function() {
+                updateCharCounter(this, counterElement);
+                validateFieldLength(this, 50);
+            });
+            
+            // Validar al perder foco
+            inputField.addEventListener('blur', function() {
+                validateFieldLength(this, 50);
+            });
+        }
+    });
+
+    // 3. Configurar validación de monto (SIN PUNTOS NI COMAS)
+    const montoInput = document.getElementById('{{ form.monto.id_for_label }}');
+    
+    if (montoInput) {
+        // Configurar atributos HTML5
+        montoInput.setAttribute('min', '0.01');
+        montoInput.setAttribute('step', '0.01');
+        montoInput.setAttribute('placeholder', 'Ej: 1000000 o 1000000.50');
+        
+        // Crear elementos de barra de progreso si no existen
+        if (!document.getElementById('montoProgressContainer')) {
+            const montoContainer = montoInput.parentElement;
+            const barraHTML = `
+                <div id="montoProgressContainer" style="display: none;">
+                    <div class="progress-bar">
+                        <div id="montoProgressFill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="montoPercentage">0%</span>
+                        <span id="montoLimit">Límite: 10000000</span>
+                    </div>
+                </div>
+            `;
+            montoInput.insertAdjacentHTML('afterend', barraHTML);
+        }
+        
+        // Validar y limpiar en tiempo real
+        montoInput.addEventListener('input', function() {
+            // Limpiar formato (solo números y punto decimal)
+            const cleanedValue = formatearVisualmente(this);
+            
+            // Obtener valor numérico
+            const monto = parseMontoValue(cleanedValue);
+            
+            // Validar
+            validarMonto(this);
+            
+            // Actualizar barra de progreso
+            actualizarBarraProgreso(monto);
+        });
+        
+        // Validar al perder foco
+        montoInput.addEventListener('blur', function() {
+            validarMonto(this);
+            
+            // Asegurar que el valor sea correcto
+            const monto = parseMontoValue(this.value);
+            if (monto > 0 && monto <= 10000000) {
+                // Mantener el valor tal como está (sin formato)
+                this.value = this.value.replace(/[^\d.]/g, '');
+            }
+        });
+        
+        // Inicializar barra de progreso si hay valor inicial
+        if (montoInput.value) {
+            const monto = parseMontoValue(montoInput.value);
+            actualizarBarraProgreso(monto);
+            
+            // Limpiar formato inicial
+            montoInput.value = montoInput.value.replace(/[^\d.]/g, '');
+        }
+        
+        // Manejar pegado de valores
+        montoInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // Limpiar el valor pegado (solo números y punto)
+            const cleanValue = pastedData.replace(/[^\d.]/g, '');
+            
+            // Si es un monto válido, usarlo
+            if (esNumeroValido(cleanValue)) {
+                const monto = parseFloat(cleanValue);
+                if (monto > 0 && monto <= 10000000) {
+                    this.value = cleanValue;
+                    validarMonto(this);
+                    actualizarBarraProgreso(monto);
+                }
+            }
+        });
+    }
+
+    // 4. Configurar fecha de emisión con fecha actual si está vacía
+    const fechaEmisionInput = document.getElementById('{{ form.fecha_emision.id_for_label }}');
+    if (fechaEmisionInput && !fechaEmisionInput.value) {
+        const today = new Date().toISOString().split('T')[0];
+        fechaEmisionInput.value = today;
+    }
+
+    // 5. Validación en tiempo real al enviar formulario
+    const form = document.getElementById('cuentaForm');
+    const submitButton = document.getElementById('submitButton');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        let isValid = true;
+        let errorMessages = [];
+        let erroredFields = [];
+        
+        // 5.1 Limpiar RUT para envío
+        if (rutInput) {
+            rutInput.value = rutInput.value.replace(/\./g, '');
+        }
+        
+        // 5.2 Validar longitud de campos de texto
+        if (!validateAllTextFields()) {
+            isValid = false;
+            errorMessages.push('Algunos campos exceden el límite de 50 caracteres.');
+            textFieldsToMonitor.forEach(fieldName => {
+                const field = document.getElementById(`id_${fieldName}`);
+                if (field && field.value.length >= 50) {
+                    erroredFields.push(field);
+                }
+            });
+        }
+        
+        // 5.3 Validar monto (SIN FORMATO)
+        if (montoInput) {
+            // Limpiar cualquier carácter no numérico excepto punto decimal
+            montoInput.value = montoInput.value.replace(/[^\d.]/g, '');
+            
+            // Validar
+            if (!validarMonto(montoInput)) {
+                isValid = false;
+                
+                // Mensaje específico según el error
+                const montoNumerico = parseMontoValue(montoInput.value);
+                if (montoNumerico > 10000000) {
+                    errorMessages.push('El monto no puede exceder los 10 millones (10000000).');
+                } else if (montoNumerico <= 0) {
+                    errorMessages.push('El monto debe ser mayor a 0.');
+                } else if (!esNumeroValido(montoInput.value)) {
+                    errorMessages.push('Formato de monto inválido. Use solo números y punto para decimales.');
+                } else {
+                    errorMessages.push('El monto no es válido.');
+                }
+                
+                erroredFields.push(montoInput);
+            }
+        }
+        
+        // 5.4 Validar fechas
+        if (!validarFechas()) {
+            isValid = false;
+            errorMessages.push('La fecha límite no puede ser anterior a la fecha de emisión.');
+            const fechaLimiteInput = document.getElementById('{{ form.fecha_limite.id_for_label }}');
+            if (fechaLimiteInput) {
+                erroredFields.push(fechaLimiteInput);
+            }
+        }
+        
+        // 5.5 Validar campos requeridos
+        const requiredFields = form.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                isValid = false;
+                field.style.borderColor = '#ef4444';
+                erroredFields.push(field);
+                if (!errorMessages.includes('Complete todos los campos obligatorios.')) {
+                    errorMessages.push('Complete todos los campos obligatorios.');
+                }
+            } else {
+                field.style.borderColor = '';
+            }
+        });
+        
+        // 5.6 Si hay errores, mostrar mensaje
+        if (!isValid) {
+            // Quitar estilos de error de campos que no tienen error
+            Array.from(form.elements).forEach(field => {
+                if (!erroredFields.includes(field) && field.style.borderColor === 'rgb(239, 68, 68)') {
+                    field.style.borderColor = '';
+                }
+            });
+            
+            // Preparar mensaje de error
+            const errorMessage = errorMessages.join(' ');
+            
+            // Usar SweetAlert o alert nativo
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Error de validación',
+                    html: errorMessage + '<br><small>Revise los campos marcados en rojo.</small>',
+                    icon: 'warning',
+                    confirmButtonColor: '#3b82f6',
+                    didClose: () => {
+                        // Hacer scroll al primer campo con error
+                        if (erroredFields.length > 0) {
+                            erroredFields[0].scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'center' 
+                            });
+                            erroredFields[0].focus();
+                        }
+                    }
+                });
+            } else {
+                alert(errorMessage + '\nRevise los campos marcados en rojo.');
+                
+                // Focus en el primer campo con error
+                if (erroredFields.length > 0) {
+                    erroredFields[0].focus();
+                }
+            }
+            
+            return false;
+        }
+        
+        // 5.7 Si todo es válido, mostrar confirmación
+        if (typeof Swal !== 'undefined') {
+            // Obtener valores para mostrar
+            const nombreProveedor = document.getElementById('id_nombre_proveedor').value;
+            const numeroFactura = document.getElementById('id_numero_factura').value;
+            const montoNumerico = parseMontoValue(montoInput.value);
+            
+            Swal.fire({
+                title: '¿Crear cuenta por pagar?',
+                html: `
+                    <div style="text-align: left; margin-top: 1rem; font-size: 0.9rem;">
+                        <p><strong>Confirmar datos:</strong></p>
+                        <p>• Proveedor: <strong>${nombreProveedor}</strong></p>
+                        <p>• Factura: <strong>${numeroFactura}</strong></p>
+                        <p>• Monto: <strong style="color: ${montoNumerico === 10000000 ? '#f59e0b' : '#10b981'};">${montoNumerico.toLocaleString('es-CL')}</strong></p>
+                        ${montoNumerico === 10000000 ? '<p style="color: #f59e0b; font-size: 0.8rem;"><strong>⚠️ Monto en el límite máximo (10,000,000)</strong></p>' : ''}
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sí, crear cuenta',
+                cancelButtonText: 'Cancelar',
+                backdrop: true,
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Mostrar loading
+                    Swal.fire({
+                        title: 'Creando cuenta...',
+                        text: 'Por favor espere',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    // Enviar formulario
+                    form.submit();
+                }
+            });
+        } else {
+            // Si no hay SweetAlert, enviar directamente
+            form.submit();
+        }
+    });
+});
+</script>
+{% endblock %}

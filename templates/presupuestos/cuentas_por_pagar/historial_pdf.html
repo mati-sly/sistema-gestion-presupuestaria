@@ -1,0 +1,225 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reporte de Historial de Pagos - {{ fecha|date:"d/m/Y" }}</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 2cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            line-height: 1.4;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 1.5cm;
+            border-bottom: 3px solid #3b82f6; /* Azul corporativo */
+            padding-bottom: 0.5cm;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #1d4ed8; /* Azul oscuro */
+        }
+        .header p {
+            margin: 0.2cm 0 0 0;
+            color: #6b7280;
+        }
+        .info-section {
+            margin-bottom: 1cm;
+            border: 1px solid #e2e8f0;
+            padding: 0.5cm;
+            border-radius: 4px;
+        }
+        .info-grid {
+            /* Usamos display: inline-block o flex para PDF */
+            display: flex;
+            justify-content: space-between;
+        }
+        .info-item {
+            width: 48%; /* Para simular dos columnas */
+            margin-bottom: 0.2cm;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #374151;
+            display: inline-block;
+            width: 150px;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5cm;
+        }
+        .table th {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.3cm;
+            text-align: left;
+            font-weight: bold;
+            border: 1px solid #2563eb;
+            font-size: 10px;
+        }
+        .table td {
+            padding: 0.25cm;
+            border: 1px solid #d1d5db;
+            vertical-align: top;
+        }
+        .table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        .monto {
+            text-align: right;
+            font-weight: bold;
+        }
+        .summary {
+            margin-top: 1cm;
+            padding: 0.5cm;
+            background-color: #e0f2fe; /* Azul claro */
+            border: 1px solid #93c5fd;
+            border-radius: 4px;
+        }
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.2cm;
+        }
+        .summary-label {
+            font-weight: bold;
+            color: #1f2937;
+        }
+        .summary-value {
+            font-weight: bold;
+            color: #059669; /* Verde para montos */
+        }
+        .footer {
+            margin-top: 2cm;
+            text-align: center;
+            color: #6b7280;
+            font-size: 8px;
+            border-top: 1px solid #d1d5db;
+            padding-top: 0.5cm;
+        }
+        .filtros-aplicados {
+            background-color: #fffbeb;
+            border: 1px solid #f59e0b;
+            border-radius: 4px;
+            padding: 0.5cm;
+            margin-bottom: 1cm;
+            font-size: 10px;
+        }
+        .filtros-label {
+            font-weight: bold;
+            color: #92400e;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .badge {
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+        .badge-pagado {
+            background-color: #10b981;
+            color: white;
+        }
+        .badge-anulado {
+            background-color: #ef4444;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Reporte de Historial de Pagos</h1>
+        <p>Sistema de Gestión de Presupuestos</p>
+        <p>Generado el: {{ fecha|date:"d/m/Y H:i" }}</p>
+    </div>
+
+    {% if estado_filter or buscar %}
+    <div class="filtros-aplicados">
+        <span class="filtros-label">Filtros aplicados:</span>
+        {% if estado_filter %} | Estado: {{ estado_filter|default:"Todos" }}{% endif %}
+        {% if buscar %} | Búsqueda: "{{ buscar }}"{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="info-section">
+        <div class="info-item">
+            <span class="info-label">Total de Transacciones:</span> {{ total_registros }}
+        </div>
+        <div class="info-item">
+            <span class="info-label">Total Pagado Neto:</span> ${{ total_pagos|floatformat:2|intcomma }}
+        </div>
+        <div class="info-item">
+            <span class="info-label">Fecha de Generación:</span> {{ fecha|date:"d/m/Y H:i" }}
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>N° Factura</th>
+                <th>Proveedor</th>
+                <th>RUT</th> <!-- 🆕 CAMPO AGREGADO -->
+                <th>F. Emisión</th> <!-- 🆕 CAMPO AGREGADO -->
+                <th>F. Pago</th>
+                <th>Monto Pagado</th>
+                <th>Método</th>
+                <th>Estado</th>
+                <th>Usuario</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pago in historial %}
+            <tr>
+                <td>{{ pago.cuenta.numero_factura }}</td>
+                <td>{{ pago.cuenta.nombre_proveedor }}</td>
+                <td>{{ pago.cuenta.rut_proveedor }}</td> <!-- 🆕 CAMPO AGREGADO -->
+                <td>{{ pago.cuenta.fecha_emision|date:"d/m/Y" }}</td> <!-- 🆕 CAMPO AGREGADO -->
+                <td>{{ pago.fecha_pago|date:"d/m/Y H:i" }}</td>
+                <td class="monto">${{ pago.monto_pagado|floatformat:2|intcomma }}</td>
+                <td>{{ pago.get_metodo_pago_display }}</td>
+                <td>
+                    <span class="badge {% if pago.estado == 'pagado' %}badge-pagado{% else %}badge-anulado{% endif %}">
+                        {{ pago.get_estado_display }}
+                    </span>
+                </td>
+                <td>{{ pago.usuario.username|default:"N/A" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center" style="padding: 1cm;">
+                    No hay registros de pagos para mostrar con los filtros aplicados.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if historial %}
+    <div class="summary">
+        <div class="summary-item">
+            <span class="summary-label">Total de Transacciones Listadas:</span>
+            <span class="summary-value" style="color: #1f2937;">{{ total_registros|intcomma }}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">Total Monto Pagado (Suma):</span>
+            <span class="summary-value" style="color: #059669;">${{ total_pagos|floatformat:2|intcomma }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        <p>Documento generado automáticamente por el Sistema de Gestión de Presupuestos</p>
+        <p>© {% now "Y" %} - Todos los derechos reservados</p>
+    </div>
+</body>
+</html>

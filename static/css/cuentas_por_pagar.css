@@ -1,0 +1,183 @@
+/* ============================================================
+   ESTILOS PARA MÓDULO CUENTAS POR PAGAR
+   ============================================================ */
+
+/* Estilos para las filas según urgencia */
+.fila-urgente {
+    background-color: #fef2f2 !important;
+    border-left: 4px solid #ef4444;
+}
+
+.fila-alerta {
+    background-color: #fffbeb !important;
+    border-left: 4px solid #f59e0b;
+}
+
+.fila-normal {
+    background-color: #ffffff !important;
+    border-left: 4px solid #10b981;
+}
+
+.fila-finalizada {
+    background-color: #f9fafb !important;
+    border-left: 4px solid #6b7280;
+}
+
+/* Mejora los badges de días */
+.category-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    text-align: center;
+    min-width: 70px;
+}
+
+.category-active {
+    background-color: #3b82f6 !important;
+    color: white !important;
+}
+
+.category-warning {
+    background-color: #f59e0b !important;
+    color: white !important;
+}
+
+.category-inactive {
+    background-color: #ef4444 !important;
+    color: white !important;
+}
+
+.category-completed {
+    background-color: #10b981 !important;
+    color: white !important;
+}
+
+/* Asegurar que las filas mantengan el estilo */
+.products-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.products-table tbody tr:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ============================================================
+   ESTILOS PARA FORMULARIOS DE CUENTAS POR PAGAR
+   ============================================================ */
+
+.form-container {
+    max-width: 100%;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #374151;
+}
+
+.form-input {
+    padding: 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.form-help {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+.error-message {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 2rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border: 1px solid transparent;
+}
+
+.alert-error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.alert-warning {
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-actions .action-button,
+    .form-actions .btn-clear-filter {
+        width: 100%;
+        text-align: center;
+    }
+}

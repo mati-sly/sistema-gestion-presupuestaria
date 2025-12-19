@@ -1,0 +1,852 @@
+{% extends 'presupuestos/base.html' %}
+{% load static %}
+
+{% block title %}Registrar Pago - Sistema de Gestión Financiera{% endblock %}
+{% block subtitle %}Registrar Pago / Transacción{% endblock %}
+
+{% block content %}
+<main class="container">
+    <div class="creation-card">
+        <!-- Encabezado con validación importante -->
+        <div class="header-form">
+            <h1>Registrar Pago</h1>
+            <p style="color: #6b7280; margin-bottom: 0;">Asigne pagos específicos a ítems de presupuestos</p>
+        </div>
+        
+        <!-- Alerta de validación CRÍTICA -->
+        <div style="margin-bottom: 2rem; padding: 1.25rem; background: #fff3cd; border-left: 6px solid #ffc107; border-radius: 12px;">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffc107" stroke="currentColor">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.346 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+                <strong style="color: #d97706; font-size: 1.1rem;">VALIDACIÓN IMPORTANTE</strong>
+            </div>
+            <p style="margin: 0; color: #92400e; line-height: 1.5;">
+                Solo puede asignar transacciones cuando el presupuesto esté en estado <strong>"CERRADO"</strong>.<br>
+                Los presupuestos abiertos no estarán disponibles para selección.
+            </p>
+        </div>
+        
+        <!-- Mostrar mensajes Django con SweetAlert -->
+        {% if messages %}
+        <div id="message-container" style="display: none;">
+            {% for message in messages %}
+            <div class="message" data-type="{{ message.tags }}" data-text="{{ message }}"></div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Formulario -->
+        <form method="post" id="pagoForm" style="margin-top: 2rem;">
+            {% csrf_token %}
+            
+            <!-- PASO 1: Selección de Presupuesto CERRADO -->
+            <div class="form-group">
+                <label class="form-label" style="font-weight: 700; color: #374151;">
+                    1. Seleccionar Presupuesto CERRADO:
+                </label>
+                <select name="presupuesto" id="presupuestoSelect" class="form-input" required style="border: 2px solid #4facfe;">
+                    <option value="">-- Seleccione un presupuesto cerrado --</option>
+                    {% for presupuesto in presupuestos_cerrados %}
+                    <option value="{{ presupuesto.id }}">
+                        {{ presupuesto.nombre }} - ${{ presupuesto.total|floatformat:0 }} 
+                        ({{ presupuesto.get_estado_display }} - {{ presupuesto.periodo }})
+                    </option>
+                    {% empty %}
+                    <option value="" disabled>No hay presupuestos cerrados disponibles</option>
+                    {% endfor %}
+                </select>
+                <small style="color: #6b7280; margin-top: 0.5rem; display: block;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4facfe" style="display: inline-block; vertical-align: middle;">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 16v-4M12 8h.01"/>
+                    </svg>
+                    Solo se muestran presupuestos con estado "CERRADO"
+                </small>
+            </div>
+            
+            <!-- PASO 2: Selección de Ítem (dinámico) -->
+            <div class="form-group">
+                <label class="form-label" style="font-weight: 700; color: #374151;">
+                    2. Seleccionar Ítem del Presupuesto:
+                </label>
+                <select name="item_presupuesto" id="itemSelect" class="form-input" disabled required style="border: 2px solid #4facfe;">
+                    <option value="">-- Primero seleccione un presupuesto --</option>
+                </select>
+                
+                <!-- Info de montos (aparece dinámicamente) -->
+                <div id="montosInfo" style="display: none; margin-top: 1rem; padding: 1.25rem; background: linear-gradient(135deg, rgba(79, 172, 254, 0.05), rgba(0, 242, 254, 0.05)); border-radius: 12px; border-left: 4px solid #4facfe;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                        <div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Monto Presupuestado:</div>
+                            <div id="montoPresupuestado" style="font-size: 1.25rem; font-weight: 700; color: #1e40af;"></div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Total Pagado:</div>
+                            <div id="montoEjecutado" style="font-size: 1.25rem; font-weight: 700; color: #f59e0b;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PASO 3: Datos del Pago -->
+            <div class="form-group">
+                <label class="form-label" style="font-weight: 700; color: #374151;">
+                    3. Monto del Pago: <span style="color: #6b7280; font-size: 0.9rem;">(Máximo: 10000000)</span>
+                </label>
+                <input type="text" name="monto" id="montoInput" class="form-input" 
+                       required placeholder="Ej: 1500000 o 1500000.50"
+                       style="border: 2px solid #10b981; font-size: 1.2rem; padding: 1rem;">
+                <div id="montoError" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; display: none;"></div>
+                
+                <!-- Barra de progreso para el monto -->
+                <div id="montoProgressContainer" style="display: none; margin-top: 0.5rem;">
+                    <div class="progress-bar">
+                        <div id="montoProgressFill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="montoPercentage">0%</span>
+                        <span id="montoLimit">Límite: 10000000</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Datos adicionales del pago -->
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-top: 2rem;">
+                <div class="form-group">
+                    <label class="form-label">Fecha del Pago:</label>
+                    <input type="date" name="fecha_pago" class="form-input" required 
+                           value="{{ today|date:'Y-m-d' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Método de Pago:</label>
+                    <select name="metodo_pago" class="form-input" required>
+                        <option value="">-- Seleccione método --</option>
+                        <option value="transferencia">Transferencia Bancaria</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Descripción con contador de caracteres -->
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <label class="form-label">Descripción del Pago:</label>
+                <textarea name="descripcion" id="descripcionInput" class="form-input" rows="3" 
+                          placeholder="Describa el propósito de este pago (opcional)" 
+                          maxlength="50"></textarea>
+                <div class="char-counter" data-field="descripcion">
+                    <span class="current">0</span>/50 caracteres
+                </div>
+            </div>
+            
+            <!-- Botones de acción -->
+            <div class="form-actions" style="margin-top: 3rem;">
+                <a href="{% url 'presupuestos:dashboard' %}" class="back-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.5rem;">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Cancelar
+                </a>
+                <button type="submit" id="submitBtn" class="save-button" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.5rem;">
+                        <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                    Registrar Pago
+                </button>
+            </div>
+        </form>
+    </div>
+</main>
+
+<!-- JavaScript para validaciones y SweetAlert -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const presupuestoSelect = document.getElementById('presupuestoSelect');
+    const itemSelect = document.getElementById('itemSelect');
+    const montosInfo = document.getElementById('montosInfo');
+    const montoInput = document.getElementById('montoInput');
+    const montoError = document.getElementById('montoError');
+    const descripcionInput = document.getElementById('descripcionInput');
+    const descripcionCounter = document.querySelector('.char-counter[data-field="descripcion"]');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    let montoPresupuestado = 0;
+    let montoEjecutado = 0;
+    
+    // ==================================
+    // FUNCIONES DE VALIDACIÓN DE MONTO
+    // ==================================
+    
+    /**
+     * Valida que el valor sea un número válido (solo números y punto decimal)
+     */
+    function esNumeroValido(valor) {
+        // Permitir números enteros y decimales con punto (1-2 decimales)
+        return /^\d+(\.\d{1,2})?$/.test(valor);
+    }
+    
+    /**
+     * Convierte un valor a número
+     */
+    function parseMontoValue(value) {
+        // Solo aceptar números y punto decimal
+        const cleanValue = value.toString().replace(/[^\d.]/g, '');
+        const parsed = parseFloat(cleanValue);
+        return isNaN(parsed) ? 0 : parsed;
+    }
+    
+    /**
+     * Valida el monto (máximo 10 millones)
+     */
+    function validarMonto() {
+        const valor = montoInput.value;
+        const monto = parseMontoValue(valor);
+        const MAX_MONTO = 10000000;
+        
+        montoError.style.display = 'none';
+        montoError.textContent = '';
+        
+        // Validar formato
+        if (valor && !esNumeroValido(valor)) {
+            montoError.textContent = 'Formato inválido. Use solo números y punto para decimales (ej: 1000000 o 1000000.50)';
+            montoError.style.display = 'block';
+            montoInput.classList.add('error-border');
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+            return false;
+        }
+        
+        // Validar que no sea negativo
+        if (monto < 0) {
+            montoError.textContent = 'El monto no puede ser negativo';
+            montoError.style.display = 'block';
+            montoInput.classList.add('error-border');
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+            return false;
+        }
+        
+        // Validar que no exceda 10 millones
+        if (monto > MAX_MONTO) {
+            montoError.textContent = `El monto no puede exceder los 10 millones. Máximo permitido: ${MAX_MONTO.toLocaleString('es-CL')}`;
+            montoError.style.display = 'block';
+            montoInput.classList.add('error-border');
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+            return false;
+        }
+        
+        // Validar que sea mayor a 0
+        if (monto === 0 && valor !== '') {
+            montoError.textContent = 'El monto debe ser mayor a 0';
+            montoError.style.display = 'block';
+            montoInput.classList.add('error-border');
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+            return false;
+        }
+        
+        // Si pasa todas las validaciones
+        montoInput.classList.remove('error-border');
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        
+        // Actualizar barra de progreso
+        actualizarBarraProgreso(monto);
+        
+        return true;
+    }
+    
+    /**
+     * Actualiza la barra de progreso del monto
+     */
+    function actualizarBarraProgreso(monto) {
+        const montoProgressContainer = document.getElementById('montoProgressContainer');
+        const montoProgressFill = document.getElementById('montoProgressFill');
+        const montoPercentage = document.getElementById('montoPercentage');
+        
+        if (!montoProgressContainer || !montoProgressFill || !montoPercentage) return;
+        
+        const MAX_MONTO = 10000000;
+        const porcentaje = Math.min((monto / MAX_MONTO) * 100, 100);
+        
+        // Mostrar contenedor si hay monto
+        if (monto > 0) {
+            montoProgressContainer.style.display = 'block';
+        } else {
+            montoProgressContainer.style.display = 'none';
+        }
+        
+        // Actualizar barra
+        montoProgressFill.style.width = `${porcentaje}%`;
+        
+        // Cambiar color según porcentaje
+        if (porcentaje >= 100) {
+            montoProgressFill.style.background = '#ef4444'; // Rojo (en el límite exacto)
+        } else if (porcentaje >= 90) {
+            montoProgressFill.style.background = '#f59e0b'; // Amarillo
+        } else {
+            montoProgressFill.style.background = '#10b981'; // Verde
+        }
+        
+        // Actualizar porcentaje
+        montoPercentage.textContent = `${porcentaje.toFixed(1)}%`;
+    }
+    
+    /**
+     * Formatea visualmente el monto para mostrar al usuario
+     */
+    function formatearMontoEnTiempoReal() {
+        const cursorPos = montoInput.selectionStart;
+        let value = montoInput.value;
+        
+        // Solo permitir números y punto decimal
+        value = value.replace(/[^\d.]/g, '');
+        
+        // Si hay más de un punto, eliminar extras
+        const dotCount = (value.match(/\./g) || []).length;
+        if (dotCount > 1) {
+            // Mantener solo el primer punto (para decimales)
+            const parts = value.split('.');
+            value = parts[0] + '.' + parts.slice(1).join('');
+        }
+        
+        // Si hay punto decimal, limitar a 2 decimales
+        if (value.includes('.')) {
+            const parts = value.split('.');
+            if (parts[1].length > 2) {
+                parts[1] = parts[1].substring(0, 2);
+                value = parts[0] + '.' + parts[1];
+            }
+        }
+        
+        // Actualizar valor si cambió
+        if (value !== montoInput.value) {
+            montoInput.value = value;
+            
+            // Ajustar posición del cursor
+            const diff = value.length - montoInput.value.length;
+            const newCursorPos = Math.max(0, cursorPos + diff);
+            setTimeout(() => {
+                montoInput.setSelectionRange(newCursorPos, newCursorPos);
+            }, 0);
+        }
+        
+        return value;
+    }
+    
+    // ==================================
+    // FUNCIONES DE CONTADOR DE CARACTERES
+    // ==================================
+    
+    /**
+     * Actualiza el contador de caracteres para un campo
+     */
+    function updateCharCounter(input, counterElement) {
+        const value = input.value;
+        const length = value.length;
+        const currentSpan = counterElement.querySelector('.current');
+        
+        currentSpan.textContent = length;
+        
+        // Cambiar color según la longitud
+        if (length >= 50) {
+            counterElement.classList.add('error');
+            counterElement.classList.remove('warning');
+            input.classList.add('error-border');
+        } else if (length >= 40) {
+            counterElement.classList.add('warning');
+            counterElement.classList.remove('error');
+            input.classList.remove('error-border');
+        } else {
+            counterElement.classList.remove('warning', 'error');
+            input.classList.remove('error-border');
+        }
+    }
+    
+    /**
+     * Valida la longitud de descripción
+     */
+    function validarDescripcion() {
+        const value = descripcionInput.value.trim();
+        
+        if (value.length >= 50) {
+            descripcionInput.classList.add('error-border');
+            return false;
+        } else {
+            descripcionInput.classList.remove('error-border');
+            return true;
+        }
+    }
+    
+    // Función para formatear números sin separadores
+    function formatNumber(num) {
+        // Redondear a 0 decimales
+        return Math.round(num).toString();
+    }
+    
+    // 1. Mostrar mensajes de Django con SweetAlert
+    function showMessages() {
+        const messages = document.querySelectorAll('.message');
+        messages.forEach(message => {
+            const type = message.getAttribute('data-type');
+            const text = message.getAttribute('data-text');
+            
+            if (type === 'success') {
+                // SweetAlert especial para pago exitoso
+                Swal.fire({
+                    title: '¡Pago Registrado Exitosamente!',
+                    html: `
+                        <div style="text-align: center; margin: 1.5rem 0;">
+                            <div style="width: 80px; height: 80px; margin: 0 auto 1.5rem; background: linear-gradient(135deg, #10b981, #34d399); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                            </div>
+                            <p style="font-size: 1.1rem; color: #374151; margin-bottom: 1rem;">${text}</p>
+                            <div style="background: #f0f9ff; padding: 1rem; border-radius: 12px; border-left: 4px solid #4facfe; margin-top: 1rem;">
+                                <p style="margin: 0; font-size: 0.95rem; color: #1e40af;">
+                                    <strong>El pago ha sido registrado correctamente en el sistema.</strong>
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    icon: 'success',
+                    confirmButtonColor: '#10b981',
+                    confirmButtonText: 'Continuar',
+                    backdrop: true,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Redirigir al dashboard después de éxito
+                        window.location.href = "{% url 'presupuestos:dashboard' %}";
+                    }
+                });
+            } else {
+                // Para otros tipos de mensajes (error, warning, info)
+                let icon = 'info';
+                let title = 'Información';
+                let color = '#3b82f6';
+                
+                if (type === 'error') {
+                    icon = 'error';
+                    title = 'Error';
+                    color = '#ef4444';
+                } else if (type === 'warning') {
+                    icon = 'warning';
+                    title = 'Advertencia';
+                    color = '#f59e0b';
+                }
+                
+                Swal.fire({
+                    icon: icon,
+                    title: title,
+                    text: text,
+                    confirmButtonColor: color,
+                    confirmButtonText: 'Aceptar',
+                    backdrop: true,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                });
+            }
+        });
+    }
+    
+    // Mostrar mensajes al cargar la página
+    showMessages();
+    
+    // 2. Configurar contador de caracteres para descripción
+    if (descripcionInput && descripcionCounter) {
+        // Inicializar contador
+        updateCharCounter(descripcionInput, descripcionCounter);
+        
+        // Actualizar en tiempo real
+        descripcionInput.addEventListener('input', function() {
+            updateCharCounter(this, descripcionCounter);
+            validarDescripcion();
+        });
+        
+        // Validar al perder foco
+        descripcionInput.addEventListener('blur', function() {
+            validarDescripcion();
+        });
+    }
+    
+    // 3. Configurar validación de monto
+    if (montoInput) {
+        // Crear elementos de barra de progreso si no existen
+        if (!document.getElementById('montoProgressContainer')) {
+            const montoContainer = montoInput.parentElement;
+            const barraHTML = `
+                <div id="montoProgressContainer" style="display: none; margin-top: 0.5rem;">
+                    <div class="progress-bar">
+                        <div id="montoProgressFill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="montoPercentage">0%</span>
+                        <span id="montoLimit">Límite: 10000000</span>
+                    </div>
+                </div>
+            `;
+            montoInput.insertAdjacentHTML('afterend', barraHTML);
+        }
+        
+        // Validar y limpiar en tiempo real
+        montoInput.addEventListener('input', function() {
+            // Limpiar formato (solo números y punto decimal)
+            formatearMontoEnTiempoReal();
+            
+            // Validar
+            validarMonto();
+        });
+        
+        // Validar al perder foco
+        montoInput.addEventListener('blur', function() {
+            validarMonto();
+            
+            // Asegurar que el valor sea correcto
+            const monto = parseMontoValue(this.value);
+            if (monto > 0 && monto <= 10000000) {
+                // Mantener el valor tal como está (sin formato)
+                this.value = this.value.replace(/[^\d.]/g, '');
+            }
+        });
+        
+        // Manejar pegado de valores
+        montoInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // Limpiar el valor pegado (solo números y punto)
+            const cleanValue = pastedData.replace(/[^\d.]/g, '');
+            
+            // Si es un monto válido, usarlo
+            if (esNumeroValido(cleanValue)) {
+                const monto = parseFloat(cleanValue);
+                if (monto > 0 && monto <= 10000000) {
+                    this.value = cleanValue;
+                    validarMonto();
+                }
+            }
+        });
+    }
+    
+    // 4. Cuando cambia el presupuesto
+    presupuestoSelect.addEventListener('change', function() {
+        const presupuestoId = this.value;
+        
+        if (!presupuestoId) {
+            itemSelect.disabled = true;
+            itemSelect.innerHTML = '<option value="">-- Primero seleccione un presupuesto --</option>';
+            montosInfo.style.display = 'none';
+            return;
+        }
+        
+        // Mostrar loading
+        itemSelect.disabled = true;
+        itemSelect.innerHTML = '<option value="">Cargando ítems...</option>';
+        
+        // Cargar ítems del presupuesto vía AJAX
+        fetch(`/presupuestos/api/items-presupuesto/${presupuestoId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error,
+                        confirmButtonColor: '#ef4444'
+                    });
+                    itemSelect.innerHTML = '<option value="">-- Error al cargar --</option>';
+                    return;
+                }
+                
+                itemSelect.disabled = false;
+                itemSelect.innerHTML = '<option value="">-- Seleccione un ítem --</option>';
+                
+                if (data.length === 0) {
+                    itemSelect.innerHTML = '<option value="" disabled>No hay ítems en este presupuesto</option>';
+                } else {
+                    data.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.id;
+                        option.textContent = `${item.nombre} - $${formatNumber(item.monto_presupuestado)}`;
+                        option.dataset.monto = item.monto_presupuestado;
+                        option.dataset.ejecutado = item.monto_ejecutado;
+                        itemSelect.appendChild(option);
+                    });
+                }
+                
+                montosInfo.style.display = 'none';
+                montoInput.value = '';
+                montoError.style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudieron cargar los ítems del presupuesto',
+                    confirmButtonColor: '#ef4444'
+                });
+                itemSelect.innerHTML = '<option value="">-- Error al cargar --</option>';
+            });
+    });
+    
+    // 5. Cuando cambia el ítem
+    itemSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        
+        if (!this.value) {
+            montosInfo.style.display = 'none';
+            montoPresupuestado = 0;
+            montoEjecutado = 0;
+            montoInput.value = '';
+            validarMonto();
+            return;
+        }
+        
+        const monto = parseFloat(selectedOption.dataset.monto);
+        const ejecutado = parseFloat(selectedOption.dataset.ejecutado);
+        
+        montoPresupuestado = monto;
+        montoEjecutado = ejecutado;
+        
+        // Mostrar info de montos
+        document.getElementById('montoPresupuestado').textContent = `$${formatNumber(monto)}`;
+        document.getElementById('montoEjecutado').textContent = `$${formatNumber(ejecutado)}`;
+        montosInfo.style.display = 'block';
+        
+        // Validar monto actual
+        validarMonto();
+    });
+    
+    // 6. Validar formulario antes de enviar CON SWEETALERT
+    document.getElementById('pagoForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        let isValid = true;
+        let errorMessages = [];
+        
+        // Validar monto
+        if (!validarMonto()) {
+            isValid = false;
+            const monto = parseMontoValue(montoInput.value);
+            if (monto > 10000000) {
+                errorMessages.push('El monto no puede exceder los 10 millones (10000000).');
+            } else if (monto <= 0) {
+                errorMessages.push('El monto debe ser mayor a 0.');
+            } else if (!esNumeroValido(montoInput.value)) {
+                errorMessages.push('Formato de monto inválido. Use solo números y punto para decimales.');
+            }
+        }
+        
+        // Validar descripción
+        if (!validarDescripcion()) {
+            isValid = false;
+            errorMessages.push('La descripción no puede exceder los 50 caracteres.');
+        }
+        
+        // Validar campos requeridos
+        const requiredFields = document.querySelectorAll('#pagoForm [required]');
+        requiredFields.forEach(field => {
+            if (!field.value.trim() && field.id !== 'descripcionInput') {
+                isValid = false;
+                field.style.borderColor = '#ef4444';
+                if (!errorMessages.includes('Complete todos los campos obligatorios.')) {
+                    errorMessages.push('Complete todos los campos obligatorios.');
+                }
+            } else {
+                field.style.borderColor = '';
+            }
+        });
+        
+        if (!isValid) {
+            // Mostrar SweetAlert con errores
+            Swal.fire({
+                icon: 'warning',
+                title: 'Error de validación',
+                html: errorMessages.join('<br>'),
+                confirmButtonColor: '#f59e0b',
+                confirmButtonText: 'Corregir'
+            });
+            return false;
+        }
+        
+        const monto = parseMontoValue(montoInput.value);
+        
+        // Mostrar SweetAlert de confirmación
+        Swal.fire({
+            title: '¿Confirmar registro de pago?',
+            html: `
+                <div style="text-align: left; margin-top: 1rem;">
+                    <p><strong>Detalles del pago:</strong></p>
+                    <p>• Presupuesto: <strong>${presupuestoSelect.options[presupuestoSelect.selectedIndex].text}</strong></p>
+                    <p>• Ítem: <strong>${itemSelect.options[itemSelect.selectedIndex].text}</strong></p>
+                    <p>• Monto a pagar: <strong style="color: #10b981;">$${monto.toLocaleString('es-CL')}</strong></p>
+                    <p>• Monto presupuestado: <strong style="color: #1e40af;">$${formatNumber(montoPresupuestado)}</strong></p>
+                    <p>• Total ya pagado: <strong style="color: #f59e0b;">$${formatNumber(montoEjecutado)}</strong></p>
+                    ${monto === 10000000 ? '<p style="color: #f59e0b; font-size: 0.8rem; margin-top: 0.5rem;"><strong>⚠️ Monto en el límite máximo (10,000,000)</strong></p>' : ''}
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#4facfe',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Sí, registrar pago',
+            cancelButtonText: 'Cancelar',
+            backdrop: true,
+            allowOutsideClick: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Limpiar el monto para envío (solo números y punto)
+                montoInput.value = montoInput.value.replace(/[^\d.]/g, '');
+                
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Registrando pago...',
+                    text: 'Por favor espere',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Enviar formulario después de confirmar
+                const formData = new FormData(document.getElementById('pagoForm'));
+                
+                fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.text())
+                .then(html => {
+                    // Crear un elemento temporal para analizar la respuesta
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    
+                    // Buscar mensajes en la respuesta
+                    const newMessages = tempDiv.querySelectorAll('.message');
+                    
+                    if (newMessages.length > 0) {
+                        // Hay mensajes, mostrarlos
+                        newMessages.forEach(message => {
+                            const type = message.getAttribute('data-type');
+                            const text = message.getAttribute('data-text');
+                            
+                            if (type === 'success') {
+                                // SweetAlert especial para pago exitoso
+                                Swal.fire({
+                                    title: '¡Pago Registrado Exitosamente!',
+                                    html: `
+                                        <div style="text-align: center; margin: 1.5rem 0;">
+                                            <div style="width: 80px; height: 80px; margin: 0 auto 1.5rem; background: linear-gradient(135deg, #10b981, #34d399); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                                                    <path d="M20 6L9 17l-5-5"/>
+                                                </svg>
+                                            </div>
+                                            <p style="font-size: 1.1rem; color: #374151; margin-bottom: 1rem;">${text}</p>
+                                            <div style="background: #f0f9ff; padding: 1rem; border-radius: 12px; border-left: 4px solid #4facfe; margin-top: 1rem;">
+                                                <p style="margin: 0; font-size: 0.95rem; color: #1e40af;">
+                                                    <strong>El pago ha sido registrado correctamente en el sistema.</strong>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    `,
+                                    icon: 'success',
+                                    confirmButtonColor: '#10b981',
+                                    confirmButtonText: 'Continuar',
+                                    backdrop: true,
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        // Redirigir al dashboard después de éxito
+                                        window.location.href = "{% url 'presupuestos:dashboard' %}";
+                                    }
+                                });
+                            } else {
+                                // Para errores
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: text,
+                                    confirmButtonColor: '#ef4444',
+                                    confirmButtonText: 'Aceptar'
+                                });
+                            }
+                        });
+                    } else {
+                        // Recargar la página para ver mensajes
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de conexión',
+                        text: 'No se pudo registrar el pago',
+                        confirmButtonColor: '#ef4444'
+                    });
+                });
+            }
+        });
+        
+        return false;
+    });
+});
+
+// Agregar estilos para el contador de caracteres y barra de progreso
+const style = document.createElement('style');
+style.textContent = `
+.char-counter {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-align: right;
+    margin-top: 0.25rem;
+}
+
+.char-counter.warning {
+    color: #f59e0b;
+}
+
+.char-counter.error {
+    color: #ef4444;
+}
+
+.error-border {
+    border-color: #ef4444 !important;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #10b981;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

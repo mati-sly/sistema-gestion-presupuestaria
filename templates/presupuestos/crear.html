@@ -1,0 +1,271 @@
+{% extends 'presupuestos/base.html' %}
+
+{% block content %}
+<section id="budgetCreate" class="budget-create" style="display: block;">
+    <div class="creation-card">
+        <div class="header-form">
+            <h1>Crear Nuevo Presupuesto</h1>
+        </div>
+
+        <form method="POST" id="presupuestoForm">
+            {% csrf_token %}
+            <div class="form-content">
+                
+                <div class="form-group">
+                    <label>Nombre del Presupuesto</label>
+                    {{ form.nombre }}
+                    <div class="char-counter" data-field="nombre">
+                        <span class="current">0</span>/50 caracteres
+                    </div>
+                    {% if form.nombre.errors %}
+                        <small style="color:red">{{ form.nombre.errors.0 }}</small>
+                    {% endif %}
+                    
+                </div>
+                
+                <div class="form-group">
+                    <label>Creado Por</label>
+                    {{ form.creado_por }}
+                    {% if form.creado_por.errors %}
+                        <small style="color:red">{{ form.creado_por.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha de Creación</label>
+                    <input type="text" class="form-input" value="{{ today|date:'d/m/Y' }}" readonly style="background-color: #e9ecef; cursor: not-allowed;">
+                    <small style="color: #6b7280;">La fecha de creación se asigna automáticamente al día de hoy</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha Límite (Fecha en que el presupuesto se cerrará automáticamente)</label>
+                    {{ form.fecha_limite }}
+                    {% if form.fecha_limite.errors %}
+                        <small style="color:red">{{ form.fecha_limite.errors.0 }}</small>
+                    {% endif %}
+                    <small style="color: #6b7280;" id="fechaHelp">La fecha límite debe ser posterior al día de hoy</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Periodo</label>
+                    {{ form.periodo }}
+                    {% if form.periodo.errors %}
+                        <small style="color:red">{{ form.periodo.errors.0 }}</small>
+                    {% endif %}
+                    <small style="color: #6b7280;">Seleccione el tipo de periodo (Mensual, Trimestral, Semestral o Anual)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Estado</label>
+                    <div class="checkbox-group">
+                        <input type="checkbox" checked disabled class="form-check-input"> 
+                        <label style="margin-bottom: 0; margin-left: 8px;">Abierto (Los presupuestos nuevos siempre se crean abiertos)</label>
+                    </div>
+                    <small style="color: #6b7280;">El estado se puede cambiar a "Cerrado" después desde el detalle del presupuesto</small>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'presupuestos:lista' %}" class="back-button">Volver a la Lista</a>
+                <button type="submit" class="save-button" id="submitButton">Guardar Presupuesto</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nombreInput = document.getElementById('id_nombre');
+    const fechaLimiteInput = document.getElementById('id_fecha_limite');
+    const fechaHelp = document.getElementById('fechaHelp');
+    const submitButton = document.getElementById('submitButton');
+    const form = document.getElementById('presupuestoForm');
+    
+    // Configurar contador de caracteres para el nombre
+    const nombreCounter = document.querySelector('.char-counter[data-field="nombre"]');
+    
+    // Función para actualizar el contador de caracteres
+    function updateCharCounter(input, counterElement) {
+        const value = input.value;
+        const length = value.length;
+        const currentSpan = counterElement.querySelector('.current');
+        
+        currentSpan.textContent = length;
+        
+        // Cambiar color según la longitud
+        if (length >= 50) {
+            counterElement.classList.add('error');
+            counterElement.classList.remove('warning');
+            input.classList.add('error-border');
+        } else if (length >= 40) {
+            counterElement.classList.add('warning');
+            counterElement.classList.remove('error');
+            input.classList.remove('error-border');
+        } else {
+            counterElement.classList.remove('warning', 'error');
+            input.classList.remove('error-border');
+        }
+    }
+    
+    // Función para validar longitud del nombre
+    function validarNombre() {
+        const value = nombreInput.value.trim();
+        const errorElement = document.getElementById('nombreError');
+        
+        if (value.length >= 50) {
+            if (errorElement) {
+                errorElement.style.display = 'block';
+            }
+            nombreInput.classList.add('error-border');
+            return false;
+        } else {
+            if (errorElement) {
+                errorElement.style.display = 'none';
+            }
+            nombreInput.classList.remove('error-border');
+            return true;
+        }
+    }
+    
+    // Función para validar la fecha
+    function validarFecha() {
+        const fechaSeleccionada = new Date(fechaLimiteInput.value);
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0); // Resetear horas para comparar solo fechas
+        
+        if (fechaLimiteInput.value && fechaSeleccionada <= hoy) {
+            fechaHelp.style.color = '#ef4444';
+            fechaHelp.textContent = 'Error: La fecha límite debe ser posterior al día de hoy';
+            fechaLimiteInput.style.borderColor = '#ef4444';
+            return false;
+        } else {
+            fechaHelp.style.color = '#6b7280';
+            fechaHelp.textContent = 'La fecha límite debe ser posterior al día de hoy';
+            fechaLimiteInput.style.borderColor = '';
+            return true;
+        }
+    }
+    
+    // Validar todo el formulario
+    function validarFormulario() {
+        const nombreValido = validarNombre();
+        const fechaValida = validarFecha();
+        
+        if (nombreValido && fechaValida) {
+            submitButton.disabled = false;
+            submitButton.style.opacity = '1';
+            submitButton.style.cursor = 'pointer';
+            return true;
+        } else {
+            submitButton.disabled = true;
+            submitButton.style.opacity = '0.6';
+            submitButton.style.cursor = 'not-allowed';
+            return false;
+        }
+    }
+    
+    // Configurar eventos para el campo nombre
+    if (nombreInput && nombreCounter) {
+        // Configurar maxlength en el input
+        nombreInput.setAttribute('maxlength', '50');
+        
+        // Inicializar contador
+        updateCharCounter(nombreInput, nombreCounter);
+        
+        // Actualizar en tiempo real
+        nombreInput.addEventListener('input', function() {
+            updateCharCounter(this, nombreCounter);
+            validarFormulario();
+        });
+        
+        // Validar al perder foco
+        nombreInput.addEventListener('blur', function() {
+            validarFormulario();
+        });
+    }
+    
+    // Validar al cambiar la fecha
+    fechaLimiteInput.addEventListener('change', function() {
+        validarFecha();
+        validarFormulario();
+    });
+    
+    fechaLimiteInput.addEventListener('input', function() {
+        validarFecha();
+        validarFormulario();
+    });
+    
+    // Validar al enviar el formulario
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        let errorMessages = [];
+        
+        if (!validarNombre()) {
+            isValid = false;
+            errorMessages.push('El nombre del presupuesto no puede exceder los 50 caracteres.');
+        }
+        
+        if (!validarFecha()) {
+            isValid = false;
+            errorMessages.push('La fecha límite debe ser posterior al día de hoy.');
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            const errorMessage = errorMessages.join('\n');
+            
+            // Usar SweetAlert si está disponible
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Error de validación',
+                    text: errorMessage,
+                    icon: 'warning',
+                    confirmButtonColor: '#3b82f6'
+                });
+            } else {
+                alert(errorMessage);
+            }
+            
+            return false;
+        }
+    });
+    
+    // Validación inicial
+    validarFormulario();
+    
+    // Establecer placeholder informativo
+    fechaLimiteInput.setAttribute('placeholder', 'Seleccione una fecha futura');
+});
+</script>
+
+<style>
+.save-button:disabled {
+    background: linear-gradient(135deg, #9ca3af, #6b7280) !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+}
+
+#id_fecha_limite:invalid {
+    border-color: #ef4444;
+}
+
+.char-counter {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-align: right;
+    margin-top: 0.25rem;
+}
+
+.char-counter.warning {
+    color: #f59e0b;
+}
+
+.char-counter.error {
+    color: #ef4444;
+}
+
+.error-border {
+    border-color: #ef4444 !important;
+}
+</style>
+{% endblock %}

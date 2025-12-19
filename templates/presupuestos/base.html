@@ -1,0 +1,82 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Gestión Financiera{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Header con link al dashboard -->
+    <div class="header">
+        <a href="{% url 'dashboard' %}" style="text-decoration: none; color: inherit;">
+            <h1>Sistema de Gestión Financiera</h1>
+        </a>
+        <p>{% block subtitle %}{% endblock %}</p>
+    </div>
+
+    <main class="container">
+        {% if messages %}
+            {% for message in messages %}
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        Swal.fire({
+                            icon: '{{ message.tags }}' === 'error' ? 'error' : 'success',
+                            title: 'Notificación',
+                            html: '{{ message|safe }}',
+                            confirmButtonColor: '#3b82f6'
+                        });
+                    });
+                </script>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <script>
+        function confirmarAccion(e, titulo, texto) {
+            e.preventDefault();
+            const url = e.currentTarget.getAttribute('href') || e.currentTarget.closest('a').getAttribute('href');
+            Swal.fire({
+                title: titulo,
+                text: texto,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Sí, proceder',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = url;
+                }
+            });
+        }
+
+        // Función global para obtener el token CSRF
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

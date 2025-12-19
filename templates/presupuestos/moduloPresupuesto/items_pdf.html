@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ítems del Presupuesto</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #3b82f6;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #1e40af;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .info-section {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .info-section p {
+            font-size: 12px;
+            color: #4b5563;
+            margin-bottom: 5px;
+        }
+        
+        .info-section strong {
+            color: #1f2937;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+        
+        thead th {
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        tbody tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        
+        tbody td {
+            padding: 10px 12px;
+            font-size: 11px;
+            color: #374151;
+        }
+        
+        .total-row {
+            background-color: #dbeafe !important;
+            font-weight: bold;
+            border-top: 2px solid #3b82f6;
+        }
+        
+        .total-row td {
+            padding: 12px;
+            font-size: 12px;
+            color: #1e40af;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 10px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+            font-style: italic;
+        }
+        
+        .amount {
+            font-weight: 600;
+            color: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Detalle de Ítems</h1>
+        <p class="subtitle">{{ presupuesto.nombre }}</p>
+    </div>
+    
+    <div class="info-section">
+        <p><strong>Presupuesto:</strong> {{ presupuesto.nombre }}</p>
+        <p><strong>Creado por:</strong> {{ presupuesto.creado_por.get_full_name|default:presupuesto.creado_por.username }}</p>
+        <p><strong>Período:</strong> {{ presupuesto.periodo }}</p>
+        <p><strong>Estado:</strong> {{ presupuesto.get_estado_display }}</p>
+        <p><strong>Fecha de Generación:</strong> {{ fecha|date:"d/m/Y H:i" }}</p>
+        <p><strong>Total de Ítems:</strong> {{ items|length }}</p>
+    </div>
+    
+    {% if items %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th style="text-align: right;">Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td><strong>{{ item.nombre }}</strong></td>
+                <td>{{ item.descripcion|default:"—" }}</td>
+                <td style="text-align: right;" class="amount">${{ item.monto|floatformat:0 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="3" style="text-align: right;">TOTAL:</td>
+                <td style="text-align: right;">${{ total|floatformat:0 }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No hay ítems registrados en este presupuesto.</p>
+    </div>
+    {% endif %}
+    
+    <div class="footer">
+        <p>Sistema de Gestión de Presupuestos - Reporte generado automáticamente</p>
+        <p>© {{ fecha|date:"Y" }} - Todos los derechos reservados</p>
+    </div>
+</body>
+</html>

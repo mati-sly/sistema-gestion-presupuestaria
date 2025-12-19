@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reporte de Cuentas por Pagar</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 2cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2cm;
+            border-bottom: 2px solid #333;
+            padding-bottom: 0.5cm;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 24px;
+        }
+        .header p {
+            color: #7f8c8d;
+            margin: 5px 0 0 0;
+        }
+        .info {
+            margin-bottom: 1cm;
+        }
+        .info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .info td {
+            padding: 5px;
+            vertical-align: top;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1cm;
+        }
+        .table th {
+            background-color: #34495e;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-weight: bold;
+        }
+        .table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        .table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .estado-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            display: inline-block;
+            text-align: center;
+            min-width: 60px;
+        }
+        .estado-pendiente { background-color: #f39c12; color: white; }
+        .estado-pagado { background-color: #27ae60; color: white; }
+        .estado-anulado { background-color: #95a5a6; color: white; }
+        .dias-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+            min-width: 40px;
+            display: inline-block;
+        }
+        .dias-verde { background-color: #27ae60; color: white; }
+        .dias-naranja { background-color: #f39c12; color: white; }
+        .dias-rojo { background-color: #e74c3c; color: white; }
+        .dias-gris { background-color: #95a5a6; color: white; }
+        .total {
+            margin-top: 1cm;
+            text-align: right;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .footer {
+            margin-top: 2cm;
+            text-align: center;
+            font-size: 10px;
+            color: #7f8c8d;
+            border-top: 1px solid #ddd;
+            padding-top: 0.5cm;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>REPORTE DE CUENTAS POR PAGAR</h1>
+        <p>Sistema de Gestión de Presupuestos</p>
+    </div>
+
+    <div class="info">
+        <table>
+            <tr>
+                <td style="width: 50%;">
+                    <strong>Fecha de generación:</strong> {{ fecha|date:"d/m/Y H:i" }}<br>
+                    <strong>Total de cuentas:</strong> {{ cuentas.count }}
+                </td>
+                <td style="width: 50%; text-align: right;">
+                    <strong>Total pendiente:</strong> ${{ total_general|floatformat:2 }}<br>
+                    <strong>Filtros aplicados:</strong> 
+                    {% if cuentas.count != total_cuentas %}{{ cuentas.count }} de {{ total_cuentas }}{% else %}Todos{% endif %}
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>N° Factura</th>
+                <th>Proveedor</th>
+                <th>Fecha Límite</th>
+                <th>Días Rest.</th>
+                <th>Monto</th>
+                <th>Estado</th>
+                <th>Creado Por</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cuenta in cuentas %}
+            <tr>
+                <td><strong>{{ cuenta.numero_factura }}</strong></td>
+                <td>{{ cuenta.nombre_proveedor }}</td>
+                <td>{{ cuenta.fecha_limite|date:"d/m/Y" }}</td>
+                <td>
+                    {% if cuenta.estado in 'pagado,anulado' %}
+                        <span class="dias-badge dias-gris">
+                            {% if cuenta.estado == 'pagado' %}✓{% else %}✗{% endif %}
+                        </span>
+                    {% else %}
+                        {% if cuenta.dias_restantes < 0 %}
+                            <span class="dias-badge dias-rojo">
+                                -{{ cuenta.dias_restantes|floatformat:"0"|cut:"-" }}d
+                            </span>
+                        {% elif cuenta.dias_restantes == 0 %}
+                            <span class="dias-badge dias-rojo">
+                                Hoy
+                            </span>
+                        {% elif cuenta.dias_restantes == 1 %}
+                            <span class="dias-badge dias-rojo">
+                                1d
+                            </span>
+                        {% else %}
+                            <span class="dias-badge 
+                                {% if cuenta.get_color_estado == 'green' %}dias-verde
+                                {% elif cuenta.get_color_estado == 'orange' %}dias-naranja
+                                {% else %}dias-rojo{% endif %}">
+                                {{ cuenta.dias_restantes }}d
+                            </span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td>${{ cuenta.monto|floatformat:2 }}</td>
+                <td>
+                    <span class="estado-badge 
+                        {% if cuenta.estado == 'pendiente' %}estado-pendiente
+                        {% elif cuenta.estado == 'pagado' %}estado-pagado
+                        {% else %}estado-anulado{% endif %}">
+                        {{ cuenta.get_estado_display }}
+                    </span>
+                </td>
+                <td>{{ cuenta.creado_por.get_full_name|default:cuenta.creado_por.username }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 20px;">
+                    No hay cuentas por pagar para mostrar.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total">
+        Total General Pendiente: ${{ total_general|floatformat:2 }}
+    </div>
+
+    <div class="footer">
+        Generado el {{ fecha|date:"d/m/Y H:i" }} | 
+        Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+</body>
+</html>

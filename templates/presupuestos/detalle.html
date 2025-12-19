@@ -1,0 +1,800 @@
+{% extends 'presupuestos/base.html' %}
+
+{% block title %}Detalle - {{ presupuesto.nombre }}{% endblock %}
+
+{% block content %}
+<main class="container">
+    <section class="budget-detail">
+        <a href="{% url 'presupuestos:lista' %}" class="back-button">← Volver a todos los presupuestos</a>
+
+        <div class="detail-card"> 
+            <div class="detail-header-text">
+                <h2>Detalle presupuesto: {{ presupuesto.nombre }}</h2>
+            </div>
+            <div class="card-body detail-info">
+                <p class="detail-info-text">
+                    Creado por: {{ presupuesto.creado_por.get_full_name|default:presupuesto.creado_por.username }} | 
+                    Estado: {{ presupuesto.get_estado_display }}
+                </p>
+                <p class="detail-info-text">
+                    Fecha Creación: {{ presupuesto.fecha_creacion|date:"Y-m-d" }} | 
+                    Fecha Límite: {{ presupuesto.fecha_limite|date:"Y-m-d" }} |
+                    Período: {{ presupuesto.periodo }}
+                </p>
+                <h1 class="total-amount">${{ total|floatformat:0 }}</h1>
+            </div>
+        </div>
+    
+        <div class="card main-content-card">
+            <div class="actions-row">
+                <h3 style="font-size: 1.5rem; color: #333;">Listado de Ítems</h3>
+                
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <!-- Botones de exportación -->
+                    <a href="{% url 'presupuestos:exportar_items_excel' presupuesto.id %}" 
+                       class="action-button" 
+                       style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3); padding: 1rem 1.5rem; font-size: 1rem; text-decoration: none; display: inline-block;">
+                         EXPORTAR EXCEL
+                    </a>
+                    <a href="{% url 'presupuestos:exportar_items_pdf' presupuesto.id %}" 
+                       class="action-button" 
+                       style="background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3); padding: 1rem 1.5rem; font-size: 1rem; text-decoration: none; display: inline-block;">
+                         EXPORTAR PDF
+                    </a>
+                    
+                    <!-- NUEVO BOTÓN: COPIAR ITEMS -->
+                    {% if items %}
+                    <a href="{% url 'presupuestos:copiar_items' presupuesto.id %}" 
+                       class="action-button" 
+                       style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3); padding: 1rem 1.5rem; font-size: 1rem; text-decoration: none; display: inline-block;">
+                          COPIAR ITEMS
+                    </a>
+                    {% endif %}
+                    
+                    {% if presupuesto.estado == 'abierto' %}
+                    <button class="action-button" type="button" title="Cerrar Presupuesto" 
+                            style="background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3); padding: 1rem 1.5rem; font-size: 1rem;" 
+                            onclick="cerrarPresupuesto()">
+                         CERRAR PRESUPUESTO
+                    </button>
+                    <button class="action-button add-item-button" type="button" 
+                            onclick="abrirModal('add')">
+                         AGREGAR ITEM
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+    
+            <div class="table-wrapper">
+                <table class="item-table" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Monto</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr data-item-id="{{ item.id }}">
+                            <td>{{ item.id }}</td>
+                            <td>{{ item.nombre }}</td>
+                            <td>{{ item.descripcion|default:"—" }}</td>
+                            <td>${{ item.monto|floatformat:0 }}</td>
+                            <td class="action-buttons-cell">
+                                {% if presupuesto.estado == 'abierto' %}
+                                <button type="button" class="icon-button edit-button" title="Modificar Ítem" onclick="editarItem({{ item.id }})">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button type="button" class="icon-button delete-button" title="Eliminar Ítem" onclick="eliminarItem({{ item.id }}, '{{ item.nombre }}')">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                                {% else %}
+                                <span style="color: #9ca3af; font-size: 0.9em;">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr id="noItemsRow">
+                            <td colspan="5" style="text-align: center; padding: 2rem;">
+                                No hay ítems agregados. {% if presupuesto.estado == 'abierto' %}Agrega el primero usando el botón "AGREGAR ITEM".{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if items %}
+                        <tr class="total-row">
+                            <td colspan="3" class="text-end">TOTAL DE ÍTEMS</td>
+                            <td id="totalAmount">${{ total|floatformat:0 }}</td>
+                            <td></td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Modal para gestionar ítems -->
+<div id="modalGestionarItem" class="modal-overlay">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h2 id="itemModalTitle">Gestionar Ítem</h2>
+            <span class="close-button" onclick="cerrarModal()">&times;</span>
+        </div>
+        
+        <form id="itemForm">
+            {% csrf_token %}
+            <input type="hidden" id="itemId" name="itemId" value="">
+            
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="id_item_nombre">Nombre del Ítem</label>
+                    <input type="text" name="nombre" id="id_item_nombre" value="" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_item_descripcion">Descripción</label>
+                    <input type="text" name="descripcion" id="id_item_descripcion" value="" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label for="id_item_monto">Monto (entre $10.000 y $10.000.000)</label>
+                    <input type="text" name="monto" id="id_item_monto" value="" 
+                           placeholder="Ej: 100000 o 100000.50" 
+                           class="form-input" required>
+                    <div id="montoError" style="color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; display: none;"></div>
+                    
+                    <!-- Barra de progreso para el monto -->
+                    <div id="montoProgressContainer" style="display: none; margin-top: 0.5rem;">
+                        <div class="progress-bar">
+                            <div id="montoProgressFill" class="progress-fill"></div>
+                        </div>
+                        <div class="progress-info">
+                            <span id="montoPercentage">0%</span>
+                            <span id="montoLimit">Límite: 10000000</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="back-button" onclick="cerrarModal()">Cerrar</button>
+                <button type="submit" class="save-button" id="submitBtn">Guardar Ítem</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const presupuestoId = {{ presupuesto.id }};
+let currentMode = 'add';
+
+// ==================================
+// FUNCIONES DE VALIDACIÓN DE MONTO
+// ==================================
+
+/**
+ * Valida que el valor sea un número válido (solo números y punto decimal)
+ */
+function esNumeroValido(valor) {
+    // Permitir números enteros y decimales con punto (1-2 decimales)
+    return /^\d+(\.\d{1,2})?$/.test(valor);
+}
+
+/**
+ * Convierte un valor a número
+ */
+function parseMontoValue(value) {
+    // Solo aceptar números y punto decimal
+    const cleanValue = value.toString().replace(/[^\d.]/g, '');
+    const parsed = parseFloat(cleanValue);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Valida el monto (entre 10000 y 10 millones)
+ */
+function validarMonto() {
+    const montoInput = document.getElementById('id_item_monto');
+    const montoError = document.getElementById('montoError');
+    const submitBtn = document.getElementById('submitBtn');
+    const valor = montoInput.value;
+    const monto = parseMontoValue(valor);
+    const MIN_MONTO = 10000;
+    const MAX_MONTO = 10000000;
+    
+    montoError.style.display = 'none';
+    montoError.textContent = '';
+    
+    // Validar formato
+    if (valor && !esNumeroValido(valor)) {
+        montoError.textContent = 'Formato inválido. Use solo números y punto para decimales (ej: 100000 o 100000.50)';
+        montoError.style.display = 'block';
+        montoInput.classList.add('error-border');
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        return false;
+    }
+    
+    // Validar que no sea negativo
+    if (monto < 0) {
+        montoError.textContent = 'El monto no puede ser negativo';
+        montoError.style.display = 'block';
+        montoInput.classList.add('error-border');
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        return false;
+    }
+    
+    // Validar que no sea menor a 10000
+    if (monto < MIN_MONTO && monto > 0) {
+        montoError.textContent = `El monto mínimo es $${MIN_MONTO.toLocaleString('es-CL')}`;
+        montoError.style.display = 'block';
+        montoInput.classList.add('error-border');
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        return false;
+    }
+    
+    // Validar que no exceda 10 millones
+    if (monto > MAX_MONTO) {
+        montoError.textContent = `El monto no puede exceder los 10 millones. Máximo permitido: ${MAX_MONTO.toLocaleString('es-CL')}`;
+        montoError.style.display = 'block';
+        montoInput.classList.add('error-border');
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        return false;
+    }
+    
+    // Validar que sea mayor a 0
+    if (monto === 0 && valor !== '') {
+        montoError.textContent = 'El monto debe ser mayor a 0';
+        montoError.style.display = 'block';
+        montoInput.classList.add('error-border');
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        return false;
+    }
+    
+    // Si pasa todas las validaciones
+    montoInput.classList.remove('error-border');
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
+    
+    // Actualizar barra de progreso
+    actualizarBarraProgreso(monto);
+    
+    return true;
+}
+
+/**
+ * Actualiza la barra de progreso del monto
+ */
+function actualizarBarraProgreso(monto) {
+    const montoProgressContainer = document.getElementById('montoProgressContainer');
+    const montoProgressFill = document.getElementById('montoProgressFill');
+    const montoPercentage = document.getElementById('montoPercentage');
+    
+    if (!montoProgressContainer || !montoProgressFill || !montoPercentage) return;
+    
+    const MAX_MONTO = 10000000;
+    const porcentaje = Math.min((monto / MAX_MONTO) * 100, 100);
+    
+    // Mostrar contenedor si hay monto
+    if (monto > 0) {
+        montoProgressContainer.style.display = 'block';
+    } else {
+        montoProgressContainer.style.display = 'none';
+    }
+    
+    // Actualizar barra
+    montoProgressFill.style.width = `${porcentaje}%`;
+    
+    // Cambiar color según porcentaje
+    if (porcentaje >= 100) {
+        montoProgressFill.style.background = '#ef4444'; // Rojo (en el límite exacto)
+    } else if (porcentaje >= 90) {
+        montoProgressFill.style.background = '#f59e0b'; // Amarillo
+    } else {
+        montoProgressFill.style.background = '#10b981'; // Verde
+    }
+    
+    // Actualizar porcentaje
+    montoPercentage.textContent = `${porcentaje.toFixed(1)}%`;
+}
+
+/**
+ * Formatea visualmente el monto para mostrar al usuario
+ */
+function formatearMontoEnTiempoReal() {
+    const montoInput = document.getElementById('id_item_monto');
+    const cursorPos = montoInput.selectionStart;
+    let value = montoInput.value;
+    
+    // Solo permitir números y punto decimal
+    value = value.replace(/[^\d.]/g, '');
+    
+    // Si hay más de un punto, eliminar extras
+    const dotCount = (value.match(/\./g) || []).length;
+    if (dotCount > 1) {
+        // Mantener solo el primer punto (para decimales)
+        const parts = value.split('.');
+        value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Si hay punto decimal, limitar a 2 decimales
+    if (value.includes('.')) {
+        const parts = value.split('.');
+        if (parts[1].length > 2) {
+            parts[1] = parts[1].substring(0, 2);
+            value = parts[0] + '.' + parts[1];
+        }
+    }
+    
+    // Actualizar valor si cambió
+    if (value !== montoInput.value) {
+        montoInput.value = value;
+        
+        // Ajustar posición del cursor
+        const diff = value.length - montoInput.value.length;
+        const newCursorPos = Math.max(0, cursorPos + diff);
+        setTimeout(() => {
+            montoInput.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+    }
+    
+    return value;
+}
+
+// ==================================
+// FUNCIONES DEL MODAL Y FORMULARIO
+// ==================================
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function abrirModal(mode = 'add') {
+    currentMode = mode;
+    const modal = document.getElementById('modalGestionarItem');
+    const title = document.getElementById('itemModalTitle');
+    const form = document.getElementById('itemForm');
+    
+    if (mode === 'add') {
+        title.innerText = 'Agregar Nuevo Ítem';
+        form.reset();
+        document.getElementById('itemId').value = '';
+        document.getElementById('id_item_monto').value = '';
+        
+        // Ocultar barra de progreso
+        const montoProgressContainer = document.getElementById('montoProgressContainer');
+        if (montoProgressContainer) {
+            montoProgressContainer.style.display = 'none';
+        }
+        
+        // Habilitar botón
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function cerrarModal() {
+    document.getElementById('modalGestionarItem').style.display = 'none';
+}
+
+function editarItem(itemId) {
+    currentMode = 'edit';
+    const title = document.getElementById('itemModalTitle');
+    title.innerText = 'Actualizar Ítem';
+    
+    fetch(`/presupuestos/${presupuestoId}/editar-item/${itemId}/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('itemId').value = data.item.id;
+            document.getElementById('id_item_nombre').value = data.item.nombre;
+            document.getElementById('id_item_descripcion').value = data.item.descripcion || '';
+            document.getElementById('id_item_monto').value = data.item.monto;
+            
+            // Actualizar barra de progreso con el monto cargado
+            const monto = parseMontoValue(data.item.monto);
+            actualizarBarraProgreso(monto);
+            
+            abrirModal('edit');
+        } else {
+            Swal.fire('Error', 'No se pudo cargar el ítem', 'error');
+        }
+    })
+    .catch(error => {
+        Swal.fire('Error', 'Ocurrió un error al cargar el ítem', 'error');
+    });
+}
+
+function eliminarItem(itemId, nombre) {
+    Swal.fire({
+        title: `¿Eliminar el ítem "${nombre}"?`,
+        text: "¡Esta acción no se puede revertir!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, ¡eliminar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/presupuestos/${presupuestoId}/eliminar-item/${itemId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Eliminado!', data.message, 'success')
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error, 'error');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Error', 'Ocurrió un error al eliminar el ítem', 'error');
+            });
+        }
+    });
+}
+
+function cerrarPresupuesto() {
+    Swal.fire({
+        title: '¿Cerrar este presupuesto?',
+        text: "Una vez cerrado, no podrás agregar ni modificar ítems.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, ¡Cerrar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/presupuestos/${presupuestoId}/cerrar/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Cerrado!', data.message, 'success')
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error, 'error');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Error', 'Ocurrió un error al cerrar el presupuesto', 'error');
+            });
+        }
+    });
+}
+
+// ==================================
+// INICIALIZACIÓN Y EVENTOS
+// ==================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Configurar validación de monto en el modal
+    const montoInput = document.getElementById('id_item_monto');
+    
+    if (montoInput) {
+        // Crear elementos de barra de progreso si no existen
+        if (!document.getElementById('montoProgressContainer')) {
+            const montoContainer = montoInput.parentElement;
+            const barraHTML = `
+                <div id="montoProgressContainer" style="display: none; margin-top: 0.5rem;">
+                    <div class="progress-bar">
+                        <div id="montoProgressFill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="montoPercentage">0%</span>
+                        <span id="montoLimit">Límite: 10000000</span>
+                    </div>
+                </div>
+            `;
+            montoInput.insertAdjacentHTML('afterend', barraHTML);
+        }
+        
+        // Validar y limpiar en tiempo real
+        montoInput.addEventListener('input', function() {
+            // Limpiar formato (solo números y punto decimal)
+            formatearMontoEnTiempoReal();
+            
+            // Validar
+            validarMonto();
+        });
+        
+        // Validar al perder foco
+        montoInput.addEventListener('blur', function() {
+            validarMonto();
+            
+            // Asegurar que el valor sea correcto
+            const monto = parseMontoValue(this.value);
+            if (monto > 0 && monto <= 10000000) {
+                // Mantener el valor tal como está (sin formato)
+                this.value = this.value.replace(/[^\d.]/g, '');
+            }
+        });
+        
+        // Manejar pegado de valores
+        montoInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // Limpiar el valor pegado (solo números y punto)
+            const cleanValue = pastedData.replace(/[^\d.]/g, '');
+            
+            // Si es un monto válido, usarlo
+            if (esNumeroValido(cleanValue)) {
+                const monto = parseFloat(cleanValue);
+                if (monto >= 10000 && monto <= 10000000) {
+                    this.value = cleanValue;
+                    validarMonto();
+                }
+            }
+        });
+    }
+    
+    // 2. Configurar envío del formulario
+    document.getElementById('itemForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Validar monto antes de enviar
+        if (!validarMonto()) {
+            return false;
+        }
+        
+        // Validar campos requeridos
+        const nombreInput = document.getElementById('id_item_nombre');
+        if (!nombreInput.value.trim()) {
+            Swal.fire('Error', 'El nombre del ítem es requerido', 'error');
+            nombreInput.focus();
+            return false;
+        }
+        
+        const formData = new FormData(this);
+        const itemId = document.getElementById('itemId').value;
+        
+        // Limpiar el monto para envío (solo números y punto)
+        const montoInput = document.getElementById('id_item_monto');
+        montoInput.value = montoInput.value.replace(/[^\d.]/g, '');
+        
+        let url, method;
+        if (currentMode === 'add') {
+            url = `/presupuestos/${presupuestoId}/agregar-item/`;
+            method = 'POST';
+        } else {
+            url = `/presupuestos/${presupuestoId}/editar-item/${itemId}/`;
+            method = 'POST';
+        }
+        
+        // Mostrar loading
+        Swal.fire({
+            title: currentMode === 'add' ? 'Agregando ítem...' : 'Actualizando ítem...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        fetch(url, {
+            method: method,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            Swal.close();
+            
+            if (data.success) {
+                Swal.fire('¡Éxito!', data.message, 'success')
+                    .then(() => {
+                        cerrarModal();
+                        location.reload();
+                    });
+            } else {
+                let errorMsg = 'Ocurrió un error al guardar el ítem';
+                if (data.errors) {
+                    errorMsg = Object.values(data.errors).flat().join(', ');
+                } else if (data.error) {
+                    errorMsg = data.error;
+                }
+                Swal.fire('Error', errorMsg, 'error');
+            }
+        })
+        .catch(error => {
+            Swal.close();
+            Swal.fire('Error', 'Ocurrió un error al procesar la solicitud', 'error');
+        });
+    });
+});
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal-overlay')) {
+        event.target.style.display = "none";
+    }
+}
+
+// Agregar estilos para el contador de caracteres y barra de progreso
+const style = document.createElement('style');
+style.textContent = `
+.error-border {
+    border-color: #ef4444 !important;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #10b981;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.close-button {
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6b7280;
+}
+
+.close-button:hover {
+    color: #333;
+}
+
+.modal-body {
+    margin-bottom: 1.5rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #4facfe;
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.save-button {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.save-button:hover {
+    opacity: 0.9;
+}
+
+.save-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.back-button {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.back-button:hover {
+    background: #e5e7eb;
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

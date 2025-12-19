@@ -1,0 +1,387 @@
+{% extends 'presupuestos/base.html' %}
+
+{% block title %}Comparar Presupuesto - Sistema de Gestión Financiera{% endblock %}
+
+{% block subtitle %}Comparar Presupuesto vs Pagos{% endblock %}
+
+{% block content %}
+<main class="container">
+    <div class="creation-card">
+        <div class="header-form">
+            <h1>Comparar Presupuesto</h1>
+            <p style="color: #6b7280; margin-bottom: 1.5rem;">Compare el presupuesto planificado vs los pagos realizados</p>
+        </div>
+        
+        <!-- Selección de presupuesto -->
+        <div style="margin-bottom: 2.5rem;">
+            <div class="form-group">
+                <label class="form-label" style="font-weight: 700; color: #374151;">
+                    Seleccionar Presupuesto para Comparar:
+                </label>
+                <select id="presupuestoSelect" class="form-input" style="border: 2px solid #8b5cf6; padding: 1rem; font-size: 1.1rem;">
+                    <option value="">-- Seleccione un presupuesto --</option>
+                    {% for presupuesto in presupuestos %}
+                    <option value="{{ presupuesto.id }}" 
+                            data-nombre="{{ presupuesto.nombre }}"
+                            data-presupuestado="{{ presupuesto.total }}"
+                            data-pagado="{{ presupuesto.total_transacciones }}"
+                            data-estado="{{ presupuesto.estado }}">
+                        {{ presupuesto.nombre }} - ${{ presupuesto.total|floatformat:0 }} 
+                        ({{ presupuesto.get_estado_display }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button onclick="cargarComparacion()" class="save-button" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); margin-top: 1rem; width: 100%;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.5rem;">
+                    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Comparar Presupuesto
+            </button>
+        </div>
+        
+        <!-- Resultados de la comparación -->
+        <div id="resultadosContainer" style="display: none;">
+            <!-- Resumen general -->
+            <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 2rem; border-radius: 16px; margin-bottom: 2rem; border: 1px solid #e2e8f0;">
+                <h3 id="tituloPresupuesto" style="color: #8b5cf6; margin-bottom: 1.5rem; font-size: 1.5rem;"></h3>
+                
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">Total Presupuestado</div>
+                        <div id="totalPresupuestado" style="font-size: 2rem; font-weight: 800; color: #1e40af;"></div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">Total Pagado</div>
+                        <div id="totalPagado" style="font-size: 2rem; font-weight: 800; color: #10b981;"></div>
+                    </div>
+                </div>
+                
+                <!-- Estado del presupuesto -->
+                <div id="estadoPresupuesto" style="padding: 1rem; border-radius: 12px; text-align: center; font-weight: 600; font-size: 1.1rem;"></div>
+            </div>
+            
+            <!-- Gráfico de barras -->
+            <div style="margin-bottom: 2.5rem;">
+                <h4 style="color: #374151; margin-bottom: 1rem; font-size: 1.2rem;">Gráfico Comparativo</h4>
+                <div style="background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #e5e7eb; height: 400px;">
+                    <canvas id="graficoComparacion"></canvas>
+                </div>
+            </div>
+            
+            <!-- Tabla de detalles por ítem -->
+            <div>
+                <h4 style="color: #374151; margin-bottom: 1rem; font-size: 1.2rem;">Detalle por Ítem</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                        <thead>
+                            <tr style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                                <th style="padding: 1rem; color: white; text-align: left; font-weight: 600;">Ítem</th>
+                                <th style="padding: 1rem; color: white; text-align: right; font-weight: 600;">Presupuestado</th>
+                                <th style="padding: 1rem; color: white; text-align: right; font-weight: 600;">Pagado</th>
+                                <th style="padding: 1rem; color: white; text-align: center; font-weight: 600;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaItems">
+                            <!-- Los datos se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botón para volver -->
+        <div class="form-actions" style="margin-top: 3rem;">
+            <a href="{% url 'presupuestos:lista' %}" class="back-button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-right: 0.5rem;">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Volver a Presupuestos
+            </a>
+        </div>
+    </div>
+</main>
+
+<!-- Incluir Chart.js para gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let grafico = null;
+
+function cargarComparacion() {
+    const select = document.getElementById('presupuestoSelect');
+    const presupuestoId = select.value;
+    const optionSeleccionada = select.options[select.selectedIndex];
+    
+    if (!presupuestoId) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Seleccione un presupuesto',
+            text: 'Debe seleccionar un presupuesto para comparar',
+            confirmButtonColor: '#f59e0b'
+        });
+        return;
+    }
+    
+    const nombre = optionSeleccionada.getAttribute('data-nombre');
+    const presupuestado = parseFloat(optionSeleccionada.getAttribute('data-presupuestado')) || 0;
+    const pagado = parseFloat(optionSeleccionada.getAttribute('data-pagado')) || 0;
+    const estado = optionSeleccionada.getAttribute('data-estado');
+    
+    // Mostrar resultados
+    document.getElementById('resultadosContainer').style.display = 'block';
+    document.getElementById('tituloPresupuesto').textContent = nombre;
+    document.getElementById('totalPresupuestado').textContent = `$${presupuestado.toLocaleString()}`;
+    document.getElementById('totalPagado').textContent = `$${pagado.toLocaleString()}`;
+    
+    // Estado del presupuesto
+    const estadoElement = document.getElementById('estadoPresupuesto');
+    
+    if (pagado <= presupuestado) {
+        estadoElement.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#10b981" stroke="currentColor">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>DENTRO DEL PRESUPUESTO - Se ha pagado $${pagado.toLocaleString()} de $${presupuestado.toLocaleString()} presupuestados</span>
+            </div>
+        `;
+        estadoElement.style.background = '#d1fae5';
+        estadoElement.style.color = '#065f46';
+    } else {
+        estadoElement.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="#ef4444" stroke="currentColor">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.346 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+                <span>SOBREGIRO PRESUPUESTARIO - Se ha pagado $${pagado.toLocaleString()} excediendo el presupuesto de $${presupuestado.toLocaleString()}</span>
+            </div>
+        `;
+        estadoElement.style.background = '#fee2e2';
+        estadoElement.style.color = '#991b1b';
+    }
+    
+    // Crear gráfico
+    crearGrafico(presupuestado, pagado);
+    
+    // Cargar detalles de ítems
+    cargarDetallesItems(presupuestoId);
+    
+    // Scroll a resultados
+    document.getElementById('resultadosContainer').scrollIntoView({ behavior: 'smooth' });
+}
+
+function crearGrafico(presupuestado, pagado) {
+    const ctx = document.getElementById('graficoComparacion').getContext('2d');
+    
+    // Destruir gráfico anterior si existe
+    if (grafico) {
+        grafico.destroy();
+    }
+    
+    grafico = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Presupuestado', 'Pagado'],
+            datasets: [{
+                label: 'Monto ($)',
+                data: [presupuestado, pagado],
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.7)',
+                    pagado <= presupuestado ? 'rgba(16, 185, 129, 0.7)' : 'rgba(239, 68, 68, 0.7)'
+                ],
+                borderColor: [
+                    'rgb(59, 130, 246)',
+                    pagado <= presupuestado ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Monto ($)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Categoría'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: $${context.raw.toLocaleString()}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function cargarDetallesItems(presupuestoId) {
+    // Mostrar loading
+    Swal.fire({
+        title: 'Cargando detalles...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Llamar a la API para obtener detalles de ítems
+    fetch(`/presupuestos/api/comparar-presupuesto/${presupuestoId}/`)
+        .then(response => response.json())
+        .then(data => {
+            Swal.close();
+            
+            if (data.error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.error,
+                    confirmButtonColor: '#ef4444'
+                });
+                return;
+            }
+            
+            // Llenar tabla de ítems
+            const tablaBody = document.getElementById('tablaItems');
+            tablaBody.innerHTML = '';
+            
+            if (data.items && data.items.length > 0) {
+                data.items.forEach(item => {
+                    const estadoColor = item.ejecutado <= item.presupuestado ? '#10b981' : '#ef4444';
+                    const estadoTexto = item.ejecutado <= item.presupuestado ? 'Dentro del presupuesto' : 'Sobregirado';
+                    
+                    const fila = document.createElement('tr');
+                    fila.style.borderBottom = '1px solid #e5e7eb';
+                    
+                    fila.innerHTML = `
+                        <td style="padding: 1rem; font-weight: 500;">${item.nombre}</td>
+                        <td style="padding: 1rem; text-align: right; font-weight: 600; color: #1e40af;">
+                            $${item.presupuestado.toLocaleString()}
+                        </td>
+                        <td style="padding: 1rem; text-align: right; font-weight: 600; color: ${item.ejecutado <= item.presupuestado ? '#10b981' : '#ef4444'}">
+                            $${item.ejecutado.toLocaleString()}
+                        </td>
+                        <td style="padding: 1rem; text-align: center;">
+                            <span style="padding: 0.375rem 0.75rem; background: ${estadoColor}; color: white; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">
+                                ${estadoTexto}
+                            </span>
+                        </td>
+                    `;
+                    
+                    tablaBody.appendChild(fila);
+                });
+            } else {
+                tablaBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="padding: 2rem; text-align: center; color: #6b7280;">
+                            No hay ítems en este presupuesto para mostrar.
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            Swal.close();
+            console.error('Error:', error);
+            
+            // Mostrar mensaje de error
+            const tablaBody = document.getElementById('tablaItems');
+            tablaBody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="padding: 2rem; text-align: center; color: #ef4444;">
+                        Error al cargar los detalles de los ítems.
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+    // Asegurar que Chart.js esté disponible
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js no está cargado');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de carga',
+            text: 'No se pudo cargar la librería de gráficos. Por favor, recargue la página.',
+            confirmButtonColor: '#ef4444'
+        });
+    }
+});
+</script>
+
+<style>
+/* Estilos específicos para la página de comparación */
+.creation-card {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+#resultadosContainer {
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Estilos para la tabla */
+table {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+table tr:hover {
+    background-color: #f9fafb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .creation-card {
+        padding: 1.5rem;
+    }
+    
+    #graficoComparacion {
+        height: 300px !important;
+    }
+    
+    table {
+        font-size: 0.875rem;
+    }
+    
+    table th, table td {
+        padding: 0.75rem 0.5rem;
+    }
+}
+</style>
+{% endblock %}

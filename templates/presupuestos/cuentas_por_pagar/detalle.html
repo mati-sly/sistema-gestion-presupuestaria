@@ -1,0 +1,574 @@
+{% extends 'presupuestos/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Detalle de Cuenta - {{ cuenta.numero_factura }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/cuentas_por_pagar.css' %}">
+<style>
+/* Contenedor principal con recuadro blanco único */
+.single-white-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    margin: 0 auto;
+    max-width: 900px;
+}
+
+/* Encabezado dentro del recuadro */
+.card-header {
+    padding: 2.5rem 2.5rem 1.5rem 2.5rem;
+    text-align: center;
+    border-bottom: 2px solid #f3f4f6;
+}
+
+.card-header h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.card-header p {
+    color: #6b7280;
+    font-size: 1rem;
+}
+
+/* Contenido principal */
+.card-content {
+    padding: 0 2.5rem 2.5rem 2.5rem;
+}
+
+/* Alertas dentro del recuadro */
+.alert-container {
+    margin: 1.5rem 0;
+}
+
+.urgente-alert {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+    border-left: 5px solid #ef4444;
+}
+
+.alerta-alert {
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+    border-left: 5px solid #f59e0b;
+}
+
+/* Sección de factura */
+.factura-header {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 1.5rem;
+    text-align: center;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+}
+
+.factura-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.factura-header p {
+    margin: 0.5rem 0 0 0;
+    opacity: 0.9;
+}
+
+/* Información del Proveedor */
+.proveedor-info {
+    border-left: 5px solid #f59e0b;
+    padding-left: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.proveedor-info .info-label {
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+.proveedor-info .info-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* Grid de información principal */
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.info-group {
+    margin-bottom: 1.25rem;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.info-value {
+    font-size: 1rem;
+    color: #1f2937;
+}
+
+/* Badges de estado */
+.estado-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+}
+
+.category-active {
+    background-color: #10b981 !important;
+    color: white !important;
+}
+
+.category-warning {
+    background-color: #f59e0b !important;
+    color: white !important;
+}
+
+.category-inactive {
+    background-color: #ef4444 !important;
+    color: white !important;
+}
+
+.category-completed {
+    background-color: #6b7280 !important;
+    color: white !important;
+}
+
+/* Monto grande */
+.monto-grande {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #059669;
+}
+
+/* Descripción y observaciones */
+.description-section {
+    margin-bottom: 2rem;
+}
+
+.description-box {
+    background: #f3f4f6;
+    padding: 1.25rem;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+/* Historial de pagos */
+.historial-section {
+    margin-top: 2.5rem;
+    border-top: 2px solid #e5e7eb;
+    padding-top: 1.5rem;
+}
+
+.historial-section h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 1rem;
+}
+
+.historial-item {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #3b82f6;
+}
+
+.historial-item.anulado {
+    border-left-color: #ef4444;
+    background: #fef2f2;
+}
+
+/* Botones de acción */
+.acciones-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.acciones-buttons a,
+.acciones-buttons button {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 160px;
+    height: 44px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Botón VOLVER A LA LISTA */
+.acciones-buttons .btn-volver-lista {
+    background-color: #6b7280;
+    color: white;
+    border: 1px solid #6b7280;
+}
+
+.acciones-buttons .btn-volver-lista:hover {
+    background-color: #4b5563;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Botón REALIZAR PAGO */
+.acciones-buttons .btn-realizar-pago {
+    background-color: #10b981;
+    color: white;
+    border: 1px solid #10b981;
+}
+
+.acciones-buttons .btn-realizar-pago:hover {
+    background-color: #0da271;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Botón ANULAR CUENTA */
+.acciones-buttons .btn-anular-cuenta {
+    background-color: #f59e0b;
+    color: white;
+    border: 1px solid #f59e0b;
+}
+
+.acciones-buttons .btn-anular-cuenta:hover {
+    background-color: #d97706;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Mensaje sin datos */
+.no-data-message {
+    text-align: center;
+    padding: 2.5rem;
+    color: #6b7280;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .single-white-card {
+        margin: 0 1rem;
+    }
+    
+    .card-header {
+        padding: 2rem 1.5rem 1rem 1.5rem;
+    }
+    
+    .card-content {
+        padding: 0 1.5rem 2rem 1.5rem;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .acciones-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .acciones-buttons a,
+    .acciones-buttons button {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .monto-grande {
+        font-size: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container">
+    <!-- ÚNICO RECUADRO BLANCO -->
+    <div class="single-white-card">
+        <!-- Encabezado dentro del recuadro -->
+        <div class="card-header">
+            <h1>Detalle de Cuenta por Pagar</h1>
+            <p>Información completa de la factura {{ cuenta.numero_factura }}</p>
+        </div>
+
+        <!-- Contenido dentro del recuadro -->
+        <div class="card-content">
+            <!-- Alertas de estado -->
+            <div class="alert-container">
+                {% if cuenta.get_color_estado == 'red' %}
+                <div class="urgente-alert">
+                    <strong> URGENTE:</strong> 
+                    {% if cuenta.dias_restantes is not None and cuenta.dias_restantes < 0 %}
+                        Esta cuenta está vencida hace <strong>{{ cuenta.dias_restantes|floatformat:"0"|cut:"-" }} días</strong>.
+                    {% elif cuenta.dias_restantes == 0 %}
+                        Esta cuenta vence <strong>hoy</strong>.
+                    {% endif %}
+                </div>
+                {% elif cuenta.get_color_estado == 'orange' %}
+                <div class="alerta-alert">
+                    <strong> ALERTA:</strong> Esta cuenta vence en <strong>{{ cuenta.dias_restantes }} días</strong>.
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Sección de factura -->
+            <div class="factura-header">
+                <h2>FACTURA N° {{ cuenta.numero_factura }}</h2>
+                <p>Documento de Cuenta por Pagar</p>
+            </div>
+
+            <!-- Información del Proveedor -->
+            <div class="proveedor-info">
+                <div class="info-label">PROVEEDOR</div>
+                <div class="info-value">{{ cuenta.nombre_proveedor }}</div>
+                <div class="info-label" style="margin-top: 0.5rem;">RUT PROVEEDOR</div>
+                <div class="info-value">{{ cuenta.rut_proveedor|default:"N/A" }}</div>
+            </div>
+            
+            <!-- Información principal -->
+            <div class="info-grid">
+                <!-- Columna izquierda: Fechas -->
+                <div>
+                    <div class="info-group">
+                        <div class="info-label">FECHA DE EMISIÓN</div>
+                        <div class="info-value">{{ cuenta.fecha_emision|date:"d/m/Y" }}</div>
+                    </div>
+                    
+                    <div class="info-group">
+                        <div class="info-label">FECHA LÍMITE DE PAGO</div>
+                        <div class="info-value">{{ cuenta.fecha_limite|date:"d/m/Y" }}</div>
+                    </div>
+                    
+                    <div class="info-group">
+                        <div class="info-label">DÍAS RESTANTES</div>
+                        <div class="info-value">
+                            <span class="estado-badge 
+                                {% if cuenta.estado in 'pagado,anulado' %}category-completed
+                                {% elif cuenta.get_color_estado == 'green' %}category-active
+                                {% elif cuenta.get_color_estado == 'orange' %}category-warning
+                                {% elif cuenta.get_color_estado == 'red' %}category-inactive
+                                {% else %}category-completed{% endif %}">
+                                {% if cuenta.estado in 'pagado,anulado' %}
+                                    {% if cuenta.estado == 'pagado' %} Pagado{% else %} Anulado{% endif %}
+                                {% else %}
+                                    {% if cuenta.dias_restantes is not None and cuenta.dias_restantes < 0 %}
+                                        {{ cuenta.dias_restantes|floatformat:"0"|cut:"-" }} días vencido
+                                    {% elif cuenta.dias_restantes == 0 %}
+                                        Hoy vence
+                                    {% else %}
+                                        {{ cuenta.dias_restantes }} días
+                                    {% endif %}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna derecha: Monto y Estado -->
+                <div>
+                    <div class="info-group">
+                        <div class="info-label">MONTO TOTAL</div>
+                        <div class="info-value monto-grande">${{ cuenta.monto|floatformat:0|intcomma }}</div>
+                    </div>
+                    
+                    <div class="info-group">
+                        <div class="info-label">ESTADO ACTUAL</div>
+                        <div class="info-value">
+                            <span class="estado-badge 
+                                {% if cuenta.estado == 'pagado' %}category-completed
+                                {% elif cuenta.estado == 'anulado' %}category-completed
+                                {% elif cuenta.get_color_estado == 'green' %}category-active
+                                {% elif cuenta.get_color_estado == 'orange' %}category-warning
+                                {% elif cuenta.get_color_estado == 'red' %}category-inactive
+                                {% endif %}">
+                                {{ cuenta.get_estado_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    {% if cuenta.fecha_pago %}
+                    <div class="info-group">
+                        <div class="info-label">FECHA DE PAGO REGISTRADO</div>
+                        <div class="info-value">{{ cuenta.fecha_pago|date:"d/m/Y" }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Descripción y Observaciones -->
+            <div class="description-section">
+                <div class="info-group">
+                    <div class="info-label">DESCRIPCIÓN</div>
+                    <div class="info-value">{{ cuenta.descripcion|default:"Sin descripción detallada" }}</div>
+                </div>
+
+                {% if cuenta.observaciones %}
+                <div class="info-group">
+                    <div class="info-label">OBSERVACIONES</div>
+                    <div class="info-value description-box">
+                        {{ cuenta.observaciones }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Historial de Pagos -->
+            <div class="historial-section">
+                <h3>Historial de Pagos</h3>
+                
+                {% if historial_pagos %}
+                    {% for pago in historial_pagos %}
+                    <div class="historial-item {% if pago.estado == 'anulado' %}anulado{% endif %}">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>
+                                    {% if pago.estado == 'pagado' %}Pago de ${{ pago.monto_pagado|floatformat:0|intcomma }} registrado
+                                    {% else %}Anulación registrada{% endif %}
+                                    el {{ pago.fecha_pago|date:"d/m/Y H:i" }}
+                                </strong>
+                                <div style="margin-top: 0.5rem;">
+                                    <span class="estado-badge {% if pago.estado == 'pagado' %}category-active{% else %}category-inactive{% endif %}">
+                                        {{ pago.get_estado_display }}
+                                    </span>
+                                    <span style="margin-left: 1rem;">Método: {{ pago.get_metodo_pago_display }}</span>
+                                </div>
+                                
+                                {% if pago.referencia %}
+                                <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                                    Referencia: {{ pago.referencia }}
+                                </div>
+                                {% endif %}
+                                {% if pago.observaciones %}
+                                <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+                                    Motivo: {{ pago.observaciones }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div style="text-align: right; font-size: 0.875rem; color: #6b7280;">
+                                Registrado por: {{ pago.usuario.username|default:"N/A" }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-data-message">
+                        No hay historial de pagos para esta cuenta.
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="acciones-buttons">
+                <a href="{% url 'presupuestos:lista_cuentas' %}" class="btn-volver-lista">
+                    VOLVER A LA LISTA
+                </a>
+                
+                {% if cuenta.estado == 'pendiente' %}
+                
+                
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+// Reutilizar las mismas funciones de lista.html
+function anularCuenta(id, numeroFactura) {
+    Swal.fire({
+        title: '¿Anular esta cuenta?',
+        text: `La cuenta "${numeroFactura}" será marcada como anulada.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        input: 'text',
+        inputLabel: 'Observaciones (opcional)',
+        inputPlaceholder: 'Motivo de la anulación...'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const observaciones = result.value || 'Cuenta anulada';
+            
+            fetch(`/presupuestos/cuentas-por-pagar/${id}/anular/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({observaciones: observaciones})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Anulada!', data.message, 'success')
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error, 'error');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Error', 'Ocurrió un error al anular la cuenta', 'error');
+            });
+        }
+    });
+}
+
+// Función para obtener cookies (necesaria para las funciones anteriores)
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

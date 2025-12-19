@@ -1,0 +1,542 @@
+{% extends 'presupuestos/base.html' %}
+{% load humanize %}
+
+{% block title %}Cuentas por Pagar - Pendientes{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Estilos para las filas según urgencia */
+.fila-urgente {
+    background-color: #fef2f2 !important;
+    border-left: 4px solid #ef4444;
+}
+
+.fila-alerta {
+    background-color: #fffbeb !important;
+    border-left: 4px solid #f59e0b;
+}
+
+.fila-normal {
+    background-color: #ffffff !important;
+    border-left: 4px solid #10b981;
+}
+
+/* Badge para días - SOLO EL NÚMERO con color */
+.dias-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    text-align: center;
+    min-width: 50px;
+}
+
+.dias-verde {
+    background-color: #10b981 !important;  /* VERDE - Seguro (6+ días) */
+    color: white !important;
+}
+
+.dias-naranja {
+    background-color: #f59e0b !important;  /* NARANJA - Precaución (2-5 días) */
+    color: white !important;
+}
+
+.dias-rojo {
+    background-color: #ef4444 !important;  /* ROJO - Peligro (0-1 días) */
+    color: white !important;
+}
+
+/* Badge para estado */
+.estado-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    text-align: center;
+    min-width: 90px;
+}
+
+.estado-verde {
+    background-color: #10b981 !important;
+    color: white !important;
+}
+
+.estado-naranja {
+    background-color: #f59e0b !important;
+    color: white !important;
+}
+
+.estado-rojo {
+    background-color: #ef4444 !important;
+    color: white !important;
+}
+
+/* Asegurar que las filas mantengan el estilo */
+.products-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.products-table tbody tr:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Nota informativa */
+.nota-info {
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.nota-info p {
+    margin: 0;
+    color: #92400e;
+    font-weight: 500;
+}
+
+.nota-info a {
+    color: #dc2626;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.nota-info a:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container">
+    <section class="budget-list">
+        <div class="header">
+            <h1>Módulo de Cuentas por Pagar</h1>
+            <p>Gestión de cuentas pendientes de pago</p>
+            
+        </div>
+    
+        <div class="card main-content-card">
+            <!-- Filtros y búsqueda -->
+            <form method="GET" action="{% url 'presupuestos:lista_cuentas' %}" class="filter-search-form">
+                <!-- Filtro por Estado -->
+                <div class="filter-group">
+                    <label for="id_estado">Estado:</label>
+                    {{ filter_form.estado }}
+                </div>
+
+                <!-- Filtro por Fecha Desde -->
+                <div class="filter-group">
+                    <label for="id_fecha_desde">Desde:</label>
+                    {{ filter_form.fecha_desde }}
+                </div>
+
+                <!-- Filtro por Fecha Hasta -->
+                <div class="filter-group">
+                    <label for="id_fecha_hasta">Hasta:</label>
+                    {{ filter_form.fecha_hasta }}
+                </div>
+
+                <!-- Búsqueda por Texto -->
+                <div class="filter-group search-group">
+                    <label for="id_buscar">Buscar:</label>
+                    {{ filter_form.buscar }}
+                </div>
+
+                <!-- Botones de Filtro -->
+                <button type="submit" class="btn-clear-filter btn-apply-filter">Aplicar Filtros</button>
+                <a href="{% url 'presupuestos:lista_cuentas' %}" class="btn-clear-filter">Limpiar Todo</a>
+            </form>
+            
+            <!-- Botones de acción -->
+            <div class="actions-row">
+                <div class="export-buttons-group">
+                    <a href="{% url 'presupuestos:exportar_cuentas_excel' %}?{{ request.GET.urlencode }}" class="btn-action btn-excel">REPORTE EXCEL</a>
+                    <a href="{% url 'presupuestos:exportar_cuentas_pdf' %}?{{ request.GET.urlencode }}" class="btn-action btn-delete">REPORTE PDF</a>
+                    <a href="{% url 'presupuestos:historial_pagos' %}" class="btn-action" style="background-color: #8b5cf6;">
+                         HISTORIAL
+                    </a>
+                    <a href="{% url 'presupuestos:dashboard' %}" class="btn-action" style="background-color: #6b7280;">
+                        VOLVER AL DASHBOARD
+                    </a>
+                </div>
+    
+                <a href="{% url 'presupuestos:crear_cuenta' %}" class="action-button create-button">
+                     AGREGAR CUENTA
+                </a>
+            </div>
+    
+            <!-- Tabla de cuentas por pagar -->
+            <div class="table-wrapper">
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>N° Factura</th>
+                            <th>Proveedor</th>
+                            <th>RUT Proveedor</th> <!-- 🆕 CAMPO AGREGADO -->
+                            <th>Fecha Emisión</th> <!-- 🆕 CAMPO AGREGADO -->
+                            <th>Fecha Límite</th>
+                            <th>Días Rest.</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <!-- ❌ CAMPO ELIMINADO: Creado Por -->
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cuenta in page_obj %}
+                        <tr class="{% if cuenta.get_color_estado == 'red' %}fila-urgente{% elif cuenta.get_color_estado == 'orange' %}fila-alerta{% else %}fila-normal{% endif %}">
+                            <td class="product-name">{{ cuenta.numero_factura }}</td>
+                            <td>{{ cuenta.nombre_proveedor }}</td>
+                            <td>{{ cuenta.rut_proveedor }}</td> <!-- 🆕 CAMPO AGREGADO -->
+                            <td>{{ cuenta.fecha_emision|date:"Y-m-d" }}</td> <!-- 🆕 CAMPO AGREGADO -->
+                            <td>{{ cuenta.fecha_limite|date:"Y-m-d" }}</td>
+                            <td>
+                                {% if cuenta.dias_restantes < 0 %}
+                                    <span class="dias-badge dias-rojo">
+                                        {{ cuenta.dias_restantes|floatformat:"0"|cut:"-" }}d
+                                    </span>
+                                {% elif cuenta.dias_restantes == 0 %}
+                                    <span class="dias-badge dias-rojo">
+                                        Hoy
+                                    </span>
+                                {% elif cuenta.dias_restantes == 1 %}
+                                    <span class="dias-badge dias-rojo">
+                                        1d
+                                    </span>
+                                {% else %}
+                                    <span class="dias-badge 
+                                        {% if cuenta.get_color_estado == 'green' %}dias-verde
+                                        {% elif cuenta.get_color_estado == 'orange' %}dias-naranja
+                                        {% else %}dias-rojo{% endif %}">
+                                        {{ cuenta.dias_restantes }}d
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="price-value">${{ cuenta.monto|floatformat:0 }}</td>
+                            <td>
+                                <span class="estado-badge 
+                                    {% if cuenta.get_color_estado == 'green' %}estado-verde
+                                    {% elif cuenta.get_color_estado == 'orange' %}estado-naranja
+                                    {% elif cuenta.get_color_estado == 'red' %}estado-rojo
+                                    {% else %}estado-verde{% endif %}">
+                                    {{ cuenta.get_estado_display }}
+                                </span>
+                            </td>
+                            <!-- ❌ COLUMNA ELIMINADA: Creado Por -->
+                            <td class="action-buttons-cell">
+                                <a href="{% url 'presupuestos:detalle_cuenta' cuenta.pk %}" class="icon-button view-button" title="Ver Detalle">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                </a>
+                                
+                                <button type="button" class="icon-button edit-button" title="Registrar Pago" 
+                                        onclick="registrarPago({{ cuenta.pk }}, '{{ cuenta.numero_factura|escapejs }}', '{{ cuenta.nombre_proveedor|escapejs }}', {{ cuenta.monto }}, '{{ cuenta.fecha_limite|date:"d/m/Y" }}')">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20 6L9 17l-5-5"></path>
+                                    </svg>
+                                </button>
+                                
+                                <button type="button" class="icon-button warning-button" title="Anular Cuenta" onclick="anularCuenta({{ cuenta.pk }}, '{{ cuenta.numero_factura|escapejs }}')">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                    </svg>
+                                </button>
+                                
+                                {% if cuenta.puede_modificar %}
+                               
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 2rem;"> <!-- Corregido colspan a 9 -->
+                                {% if request.GET.estado or request.GET.buscar or request.GET.fecha_desde or request.GET.fecha_hasta %}
+                                    No se encontraron cuentas con los filtros aplicados.
+                                {% else %}
+                                    No hay cuentas pendientes de pago.
+                                    <br>
+                                    <small style="color: #6b7280; margin-top: 0.5rem; display: block;">
+                                        Las cuentas pagadas o anuladas están en el Historial de pago
+                                    </small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            {% if page_obj.has_other_pages %}
+            <div class="pagination-container">
+                <nav aria-label="Navegación de páginas">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Anterior">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&laquo;</span>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active" aria-current="page">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Siguiente">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&raquo;</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                <span class="page-info">
+                    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} cuentas pendientes)
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Función para registrar pago con SweetAlert
+function registrarPago(id, numeroFactura, proveedor, monto, fechaLimite) {
+    Swal.fire({
+        title: '¿Confirmar pago?',
+        html: `
+            <div style="text-align: left;">
+                <p><strong>Proveedor:</strong> ${proveedor}</p>
+                <p><strong>Factura:</strong> ${numeroFactura}</p>
+                <p><strong>Monto:</strong> $${monto.toLocaleString('es-CL', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                <p><strong>Fecha Límite:</strong> ${fechaLimite}</p>
+                <br>
+                <p style="color: #ef4444; font-weight: 600;">
+                    ⚠️ Una vez registrado, el pago no podrá ser modificado y la cuenta se moverá al historial.
+                </p>
+            </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, registrar pago',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Registrando pago...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading()
+                }
+            });
+            
+            // Enviar petición para registrar el pago
+            fetch(`/presupuestos/cuentas-por-pagar/${id}/registrar-pago/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '¡Pago Registrado!',
+                        text: data.message,
+                        icon: 'success',
+                        confirmButtonColor: '#10b981',
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Ver Historial',
+                        denyButtonText: 'Quedarme aquí',
+                        cancelButtonText: 'Recargar lista'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Ir al historial
+                            window.location.href = "{% url 'presupuestos:historial_pagos' %}";
+                        } else if (result.isDenied) {
+                            // Quedarse en la lista actual
+                            // No hacer nada
+                        } else {
+                            // Recargar la página para ver los cambios
+                            location.reload();
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', data.error || 'Ocurrió un error al registrar el pago', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'Ocurrió un error al registrar el pago', 'error');
+            });
+        }
+    });
+}
+
+function anularCuenta(id, numeroFactura) {
+    Swal.fire({
+        title: '¿Anular esta cuenta?',
+        text: `La cuenta "${numeroFactura}" será marcada como anulada y se moverá al historial.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, ¡Anular!',
+        cancelButtonText: 'Cancelar',
+        input: 'text',
+        inputLabel: 'Observaciones (opcional)',
+        inputPlaceholder: 'Motivo de la anulación...'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const observaciones = result.value || 'Cuenta anulada';
+            
+            fetch(`/presupuestos/cuentas-por-pagar/${id}/anular/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({observaciones: observaciones})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: '¡Anulada!',
+                        text: data.message,
+                        icon: 'success',
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Ver Historial',
+                        denyButtonText: 'Quedarme aquí',
+                        cancelButtonText: 'Recargar lista'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "{% url 'presupuestos:historial_pagos' %}";
+                        } else if (result.isDenied) {
+                            // Quedarse en la lista actual
+                        } else {
+                            location.reload();
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', data.error, 'error');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Error', 'Ocurrió un error al anular la cuenta', 'error');
+            });
+        }
+    });
+}
+
+function eliminarCuenta(id, numeroFactura) {
+    Swal.fire({
+        title: `¿Eliminar la cuenta "${numeroFactura}"?`,
+        text: "¡Esta acción no se puede revertir!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, ¡eliminar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/presupuestos/cuentas-por-pagar/${id}/eliminar/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('¡Eliminada!', data.message, 'success')
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.error, 'error');
+                }
+            })
+            .catch(error => {
+                Swal.fire('Error', 'Ocurrió un error al eliminar la cuenta', 'error');
+            });
+        }
+    });
+}
+
+// Función para mostrar información de los filtros aplicados (se mantiene)
+document.addEventListener('DOMContentLoaded', function() {
+    const filtrosAplicados = [];
+    
+    {% if estado_filter %}
+    filtrosAplicados.push('Estado: {{ estado_filter }}');
+    {% endif %}
+    
+    {% if buscar %}
+    filtrosAplicados.push('Búsqueda: {{ buscar }}');
+    {% endif %}
+    
+    if (filtrosAplicados.length > 0) {
+        console.log('Filtros aplicados:', filtrosAplicados.join(', '));
+    }
+});
+</script>
+{% endblock %}

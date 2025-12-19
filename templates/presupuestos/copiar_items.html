@@ -1,0 +1,238 @@
+{% extends 'presupuestos/base.html' %}
+
+{% block title %}Copiar Items - {{ presupuesto_origen.nombre }}{% endblock %}
+
+{% block content %}
+<main class="container">
+    <section class="items-copy">
+        <div class="header">
+            <h1>Copiar Items entre Presupuestos</h1>
+            <p>Seleccione items del presupuesto actual para copiar a otro presupuesto</p>
+        </div>
+
+        <div class="creation-card">
+            <!-- Información del presupuesto origen -->
+            <div style="margin-bottom: 2rem; padding: 1.5rem; background: rgba(59, 130, 246, 0.05); border-radius: 12px;">
+                <h3 style="color: #3b82f6; margin-bottom: 1rem;">Presupuesto Origen</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div>
+                        <strong>Nombre:</strong><br>
+                        {{ presupuesto_origen.nombre }}
+                    </div>
+                    <div>
+                        <strong>Total:</strong><br>
+                        <span class="price-value">${{ presupuesto_origen.total|floatformat:0 }}</span>
+                    </div>
+                    <div>
+                        <strong>Items disponibles:</strong><br>
+                        {{ items.count }} items
+                    </div>
+                    <div>
+                        <strong>Estado:</strong><br>
+                        <span class="category-badge {% if presupuesto_origen.estado == 'abierto' %}category-active{% else %}category-inactive{% endif %}">
+                            {{ presupuesto_origen.get_estado_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" id="copyItemsForm">
+                {% csrf_token %}
+                
+                <!-- Selección de presupuesto destino -->
+                <div class="form-group">
+                    <label for="presupuesto_destino">Seleccionar Presupuesto Destino:</label>
+                    <select name="presupuesto_destino" id="presupuesto_destino" class="form-input" required>
+                        <option value="">Seleccione un presupuesto destino</option>
+                        {% for presupuesto in presupuestos_destino %}
+                        <option value="{{ presupuesto.id }}">
+                            {{ presupuesto.nombre }} - ${{ presupuesto.total|floatformat:0 }} ({{ presupuesto.get_estado_display }})
+                        </option>
+                        {% empty %}
+                        <option value="">No hay presupuestos abiertos disponibles</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color: #6b7280; margin-top: 0.5rem; display: block;">
+                        Solo se muestran presupuestos con estado "Abierto"
+                    </small>
+                </div>
+
+                <!-- Lista de items para copiar -->
+                <div class="form-group">
+                    <label>Seleccionar Items a Copiar:</label>
+                    
+                    <!-- Contador de items seleccionados -->
+                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+                        <strong id="selectedCount">0</strong> de {{ items.count }} items seleccionados
+                    </div>
+                    
+                    <!-- Botón seleccionar todos -->
+                    <button type="button" id="selectAllBtn" class="btn-action" style="background: linear-gradient(135deg, #636e72, #2d3436); margin-bottom: 1rem;">
+                        Seleccionar Todos
+                    </button>
+                    
+                    <div style="max-height: 400px; overflow-y: auto; border: 2px solid rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 1rem;" id="itemsContainer">
+                        {% for item in items %}
+                        <div class="item-checkbox" style="padding: 0.75rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: flex-start; gap: 1rem; transition: background-color 0.2s;">
+                            <input type="checkbox" name="items" value="{{ item.id }}" id="item_{{ item.id }}" 
+                                   class="item-checkbox-input" style="margin-top: 0.25rem;">
+                            <label for="item_{{ item.id }}" style="flex: 1; margin-bottom: 0; cursor: pointer;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                    <strong style="color: #3b82f6; font-size: 1.1em;">{{ item.nombre }}</strong>
+                                    <span style="color: #10b981; font-weight: 600; margin-left: auto;">${{ item.monto|floatformat:0 }}</span>
+                                </div>
+                                {% if item.descripcion %}
+                                <div style="color: #6b7280; font-size: 0.875rem;">{{ item.descripcion }}</div>
+                                {% else %}
+                                <div style="color: #9ca3af; font-size: 0.875rem; font-style: italic;">Sin descripcion</div>
+                                {% endif %}
+                                <div style="color: #6b7280; font-size: 0.75rem; margin-top: 0.25rem;">ID: {{ item.id }}</div>
+                            </label>
+                        </div>
+                        {% empty %}
+                        <div style="text-align: center; padding: 2rem; color: #6b7280;">
+                            No hay items en este presupuesto para copiar.
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Información importante -->
+                <div style="margin: 1.5rem 0; padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                    <strong>Informacion importante:</strong>
+                    <ul style="margin: 0.5rem 0 0 1rem; color: #6b7280;">
+                        <li>Solo se pueden copiar items a presupuestos con estado "Abierto"</li>
+                        <li>Los items copiados mantendran su nombre, descripcion y monto</li>
+                        <li>Los IDs de los items seran nuevos (autoincrementales)</li>
+                        <li>Puede copiar items a multiples presupuestos diferentes</li>
+                    </ul>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{% url 'presupuestos:detalle' presupuesto_origen.id %}" class="back-button">
+                        Cancelar y Volver
+                    </a>
+                    <button type="submit" class="save-button" id="submitButton" disabled>
+                        Copiar Items Seleccionados (0)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="items"]');
+    const selectedCount = document.getElementById('selectedCount');
+    const submitButton = document.getElementById('submitButton');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const itemsContainer = document.getElementById('itemsContainer');
+    
+    console.log('Checkboxes encontrados:', checkboxes.length);
+    
+    // Funcion para actualizar el contador
+    function updateSelectionCount() {
+        const selected = document.querySelectorAll('input[name="items"]:checked').length;
+        console.log('Items seleccionados:', selected);
+        selectedCount.textContent = selected;
+        submitButton.textContent = 'Copiar Items Seleccionados (' + selected + ')';
+        submitButton.disabled = selected === 0;
+        
+        // Cambiar texto del boton de seleccion total
+        const allChecked = selected === checkboxes.length && checkboxes.length > 0;
+        selectAllBtn.textContent = allChecked ? 'Deseleccionar Todos' : 'Seleccionar Todos';
+    }
+    
+    // Event listeners para checkboxes
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectionCount);
+        
+        // Efecto visual al hacer hover en el item
+        const itemDiv = checkbox.closest('.item-checkbox');
+        if (itemDiv) {
+            itemDiv.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+            });
+            itemDiv.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+            
+            // Tambien permitir click en toda la fila
+            itemDiv.addEventListener('click', function(e) {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+    });
+    
+    // Boton de seleccionar/deseleccionar todos
+    selectAllBtn.addEventListener('click', function() {
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => {
+            cb.checked = !allChecked;
+            // Disparar evento change manualmente
+            cb.dispatchEvent(new Event('change'));
+        });
+    });
+    
+    // Validacion del formulario
+    const form = document.getElementById('copyItemsForm');
+    form.addEventListener('submit', function(e) {
+        const selectedItems = document.querySelectorAll('input[name="items"]:checked');
+        const presupuestoDestino = document.getElementById('presupuesto_destino').value;
+        
+        console.log('Validando formulario - Items seleccionados:', selectedItems.length);
+        
+        if (selectedItems.length === 0) {
+            e.preventDefault();
+            alert('Por favor, seleccione al menos un item para copiar.');
+            return false;
+        }
+        
+        if (!presupuestoDestino) {
+            e.preventDefault();
+            alert('Por favor, seleccione un presupuesto destino.');
+            return false;
+        }
+        
+        // Mostrar confirmacion
+        if (!confirm('¿Esta seguro de copiar ' + selectedItems.length + ' items al presupuesto seleccionado?')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+    
+    // Inicializar contador
+    updateSelectionCount();
+    
+    // Forzar una actualizacion despues de un breve delay para asegurar que el DOM este listo
+    setTimeout(updateSelectionCount, 100);
+});
+
+// Estilos adicionales
+const style = document.createElement('style');
+style.textContent = `
+    .item-checkbox:hover {
+        background-color: rgba(59, 130, 246, 0.05) !important;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .item-checkbox-input:checked + label {
+        color: #1e40af;
+    }
+    
+    .item-checkbox-input:checked + label strong {
+        color: #1e40af;
+    }
+    
+    .item-checkbox {
+        cursor: pointer;
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

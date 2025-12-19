@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Presupuestos</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+        
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #3b82f6;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #1e40af;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .info-section {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .info-section p {
+            font-size: 12px;
+            color: #4b5563;
+            margin-bottom: 5px;
+        }
+        
+        .info-section strong {
+            color: #1f2937;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+        
+        thead th {
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        tbody tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        
+        tbody tr:hover {
+            background-color: #f3f4f6;
+        }
+        
+        tbody td {
+            padding: 10px 12px;
+            font-size: 11px;
+            color: #374151;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-abierto {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-cerrado {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .total-row {
+            background-color: #dbeafe !important;
+            font-weight: bold;
+            border-top: 2px solid #3b82f6;
+        }
+        
+        .total-row td {
+            padding: 12px;
+            font-size: 12px;
+            color: #1e40af;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 10px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+            font-style: italic;
+        }
+        
+        .amount {
+            font-weight: 600;
+            color: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Reporte de Presupuestos</h1>
+        <p class="subtitle">Sistema de Gestión de Presupuestos</p>
+    </div>
+    
+    <div class="info-section">
+        <p><strong>Fecha de Generación:</strong> {{ fecha|date:"d/m/Y H:i" }}</p>
+        <p><strong>Total de Presupuestos:</strong> {{ presupuestos|length }}</p>
+        {% if presupuestos %}
+        <p><strong>Suma Total:</strong> ${{ total_general|floatformat:0 }}</p>
+        {% endif %}
+    </div>
+    
+    {% if presupuestos %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Creado Por</th>
+                <th>F. Creación</th>
+                <th>F. Límite</th>
+                <th style="text-align: right;">Total</th>
+                <th style="text-align: center;">Estado</th>
+                <th>Período</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for presupuesto in presupuestos %}
+            <tr>
+                <td><strong>{{ presupuesto.nombre }}</strong></td>
+                <td>{{ presupuesto.creado_por.get_full_name|default:presupuesto.creado_por.username }}</td>
+                <td>{{ presupuesto.fecha_creacion|date:"d/m/Y" }}</td>
+                <td>{{ presupuesto.fecha_limite|date:"d/m/Y" }}</td>
+                <td style="text-align: right;" class="amount">${{ presupuesto.total|floatformat:0 }}</td>
+                <td style="text-align: center;">
+                    <span class="status-badge status-{{ presupuesto.estado }}">
+                        {{ presupuesto.get_estado_display }}
+                    </span>
+                </td>
+                <td>{{ presupuesto.periodo }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="4" style="text-align: right;">TOTAL GENERAL:</td>
+                <td style="text-align: right;">${{ total_general|floatformat:0 }}</td>
+                <td colspan="2"></td>
+            </tr>
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No hay presupuestos disponibles para generar el reporte.</p>
+    </div>
+    {% endif %}
+    
+    <div class="footer">
+        <p>Sistema de Gestión de Presupuestos - Reporte generado automáticamente</p>
+        <p>© {{ fecha|date:"Y" }} - Todos los derechos reservados</p>
+    </div>
+</body>
+</html>

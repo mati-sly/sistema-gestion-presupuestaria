@@ -1,0 +1,380 @@
+{% extends 'presupuestos/base.html' %}
+{% load static %}
+
+{% block title %}Historial de Pagos{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/cuentas_por_pagar.css' %}">
+<style>
+.historial-container {
+    margin-top: 1rem;
+}
+
+.historial-item {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #3b82f6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.historial-item.pagado {
+    border-left-color: #10b981;
+    background: #f0fdf4;
+}
+
+.historial-item.anulado {
+    border-left-color: #ef4444;
+    background: #fef2f2;
+}
+
+.historial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.historial-info {
+    flex: 1;
+}
+
+.historial-meta {
+    display: flex;
+    gap: 2rem;
+    margin-top: 0.5rem;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.meta-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.meta-value {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.historial-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.estado-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-pagado {
+    background-color: #10b981;
+    color: white;
+}
+
+.badge-anulado {
+    background-color: #ef4444;
+    color: white;
+}
+
+.empty-historial {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+}
+
+.empty-historial svg {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Estilos para botones de exportación */
+.export-buttons-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-excel {
+    background-color: #10b981;
+    color: white;
+}
+
+.btn-excel:hover {
+    background-color: #059669;
+    transform: translateY(-1px);
+}
+
+.btn-pdf {
+    background-color: #ef4444;
+    color: white;
+}
+
+.btn-pdf:hover {
+    background-color: #dc2626;
+    transform: translateY(-1px);
+}
+
+.btn-back {
+    background-color: #6b7280;
+    color: white;
+}
+
+.btn-back:hover {
+    background-color: #4b5563;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+    .historial-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .historial-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .historial-actions {
+        align-self: flex-start;
+    }
+    
+    .export-buttons-group {
+        flex-wrap: wrap;
+    }
+    
+    .btn-action {
+        flex: 1;
+        min-width: 140px;
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="container">
+    <section class="budget-list">
+        <div class="header">
+            <h1>Historial de Pagos</h1>
+            <p>Registro completo de todos los pagos realizados y anulados</p>
+        </div>
+    
+        <div class="card main-content-card">
+            <!-- Filtros -->
+            <form method="GET" action="{% url 'presupuestos:historial_pagos' %}" class="filter-search-form">
+                <!-- Filtro por Estado -->
+                <div class="filter-group">
+                    <label for="id_estado">Estado:</label>
+                    {{ filter_form.estado }}
+                </div>
+
+                <!-- Búsqueda por Texto -->
+                <div class="filter-group search-group">
+                    <label for="id_buscar">Buscar:</label>
+                    {{ filter_form.buscar }}
+                </div>
+
+                <!-- Botones de Filtro -->
+                <button type="submit" class="btn-clear-filter btn-apply-filter">Aplicar Filtros</button>
+                <a href="{% url 'presupuestos:historial_pagos' %}" class="btn-clear-filter">Limpiar Todo</a>
+            </form>
+
+            <!-- Información de filtros aplicados -->
+            {% if estado_filter or buscar %}
+            <div style="background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <strong>Filtros aplicados:</strong>
+                {% if estado_filter %} | Estado: 
+                    {% for choice in filter_form.fields.estado.choices %}
+                        {% if choice.0 == estado_filter %}
+                            {{ choice.1 }}
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+                {% if buscar %} | Búsqueda: "{{ buscar }}"{% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Botones de acción -->
+            <div class="actions-row">
+                <div class="export-buttons-group">
+                    <a href="{% url 'presupuestos:lista_cuentas' %}" class="btn-action btn-back">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                        VOLVER A CUENTAS
+                    </a>
+                    <a href="{% url 'presupuestos:exportar_historial_excel' %}?{{ request.GET.urlencode }}" class="btn-action btn-excel">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <path d="M16 13H8"/>
+                            <path d="M16 17H8"/>
+                            <path d="M10 9H8"/>
+                        </svg>
+                        EXPORTAR EXCEL
+                    </a>
+                    <a href="{% url 'presupuestos:exportar_historial_pdf' %}?{{ request.GET.urlencode }}" class="btn-action btn-pdf">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <path d="M16 13H8"/>
+                            <path d="M16 17H8"/>
+                            <path d="M10 9H8"/>
+                        </svg>
+                        EXPORTAR PDF
+                    </a>
+                </div>
+            </div>
+
+            <!-- Historial de pagos -->
+            <div class="historial-container">
+                {% for pago in page_obj %}
+                <div class="historial-item {% if pago.estado == 'pagado' %}pagado{% else %}anulado{% endif %}">
+                    <div class="historial-header">
+                        <div class="historial-info">
+                            <h3 style="margin: 0 0 0.5rem 0; color: #1f2937;">
+                                {{ pago.cuenta.nombre_proveedor }}
+                            </h3>
+                            <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">
+                                Factura: <strong>{{ pago.cuenta.numero_factura }}</strong> | 
+                                Monto Original: <strong>${{ pago.cuenta.monto|floatformat:0 }}</strong>
+                            </p>
+                            
+                            <div class="historial-meta">
+                                <div class="meta-item">
+                                    <span class="meta-label">Fecha de Pago</span>
+                                    <span class="meta-value">{{ pago.fecha_pago|date:"d/m/Y H:i" }}</span>
+                                </div>
+                                
+                                <div class="meta-item">
+                                    <span class="meta-label">Método de Pago</span>
+                                    <span class="meta-value">{{ pago.get_metodo_pago_display }}</span>
+                                </div>
+                                
+                                {% if pago.monto_pagado > 0 %}
+                                <div class="meta-item">
+                                    <span class="meta-label">Monto Pagado</span>
+                                    <span class="meta-value" style="color: #059669;">${{ pago.monto_pagado|floatformat:2 }}</span>
+                                </div>
+                                {% endif %}
+                                
+                                {% if pago.referencia %}
+                                <div class="meta-item">
+                                    <span class="meta-label">Referencia</span>
+                                    <span class="meta-value">{{ pago.referencia }}</span>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="meta-item">
+                                    <span class="meta-label">Registrado por</span>
+                                    <span class="meta-value">{{ pago.usuario.get_full_name|default:pago.usuario.username }}</span>
+                                </div>
+                            </div>
+
+                            {% if pago.observaciones %}
+                            <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.03); border-radius: 6px;">
+                                <strong style="color: #6b7280; font-size: 0.875rem;">Observaciones:</strong>
+                                <p style="margin: 0.25rem 0 0 0; color: #4b5563;">{{ pago.observaciones }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="historial-actions">
+                            <span class="estado-badge {% if pago.estado == 'pagado' %}badge-pagado{% else %}badge-anulado{% endif %}">
+                                {{ pago.get_estado_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-historial">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    <h3 style="color: #6b7280; margin-bottom: 0.5rem;">No hay registros de pagos</h3>
+                    <p style="color: #9ca3af; margin: 0;">
+                        {% if estado_filter or buscar %}
+                            No se encontraron pagos con los filtros aplicados.
+                        {% else %}
+                            Los pagos realizados y anulados aparecerán aquí.
+                        {% endif %}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Paginación -->
+            {% if page_obj.has_other_pages %}
+            <div class="pagination-container">
+                <nav aria-label="Navegación de páginas">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Anterior">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&laquo;</span>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active" aria-current="page">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Siguiente">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link" aria-hidden="true">&raquo;</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                <span class="page-info">
+                    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} pagos)
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+</main>
+{% endblock %}

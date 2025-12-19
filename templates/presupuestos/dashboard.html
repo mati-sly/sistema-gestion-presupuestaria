@@ -1,0 +1,163 @@
+{% extends 'presupuestos/base.html' %}
+{% load static %}
+
+{% block title %}Sistema de Gestión Financiera{% endblock %}
+{% block subtitle %}Seleccione el módulo que desea gestionar{% endblock %}
+
+{% block content %}
+<style>
+    .dashboard-three-columns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    @media (max-width: 1200px) {
+        .dashboard-three-columns {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (min-width: 768px) and (max-width: 1200px) {
+        .dashboard-three-columns {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    .dashboard-module-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .module-header {
+        text-align: center;
+        padding: 1.5rem;
+    }
+
+    .module-icon {
+        margin: 0 auto 1rem;
+        color: #4facfe;
+    }
+
+    .module-header h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .module-content {
+        padding: 1.5rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .module-content p {
+        margin-bottom: 1rem;
+        color: #6b7280;
+        line-height: 1.6;
+    }
+
+    .module-access-button {
+        margin-top: auto;
+        width: 100%;
+        padding: 0.75rem 1.5rem;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: transform 0.2s;
+    }
+
+    .module-access-button:hover {
+        transform: translateY(-2px);
+    }
+</style>
+
+<main class="container">
+    <div class="card main-content-card">
+        <div class="dashboard-three-columns">
+            <!-- Módulo Cuentas por Pagar -->
+            <div class="card dashboard-module-card">
+                <div class="module-header">
+                    <div class="module-icon">
+                        <svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <!-- Documento con flecha de salida -->
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <!-- Flecha hacia abajo (salida de dinero) -->
+                            <path d="M12 13v4"/>
+                            <path d="M15 16l-3-3-3 3"/>
+                            <!-- Línea horizontal (base del documento) -->
+                            <line x1="9" y1="12" x2="15" y1="12"/>
+                        </svg>
+                    </div>
+                    <h3>Cuentas por Pagar</h3>
+                </div>
+                <div class="module-content">
+                    <p>Gestión de cuentas por pagar y obligaciones financieras</p>
+                    <a href="{% url 'presupuestos:lista_cuentas' %}" class="action-button create-button module-access-button">
+                        ACCEDER
+                    </a>
+                </div>
+            </div>
+
+            <!-- Módulo de Presupuestos -->
+            <div class="card dashboard-module-card">
+                <div class="module-header">
+                    <div class="module-icon">
+                        <svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <!-- Gráfico de barras -->
+                            <rect x="3" y="12" width="4" height="6" stroke="currentColor" fill="none"/>
+                            <rect x="10" y="8" width="4" height="10" stroke="currentColor" fill="none"/>
+                            <rect x="17" y="4" width="4" height="14" stroke="currentColor" fill="none"/>
+                            <!-- Línea base -->
+                            <line x1="2" y1="18" x2="22" y1="18" stroke="currentColor"/>
+                            <!-- Signo de dólar integrado -->
+                            <path d="M12 6v1" stroke="currentColor"/>
+                            <path d="M12 15v1" stroke="currentColor"/>
+                            <path d="M15 10.5c0 1.5-1.5 1.5-3 1.5s-3 0-3-1.5" stroke="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3>Módulo Presupuesto</h3>
+                </div>
+                <div class="module-content">
+                    <p>Administración completa de presupuestos y cotizaciones</p>
+                    <a href="{% url 'presupuestos:lista' %}" class="action-button create-button module-access-button">
+                        ACCEDER
+                    </a>
+                </div>
+            </div>
+
+            <!-- Módulo de Registro de Transacciones -->
+            <div class="card dashboard-module-card">
+                <div class="module-header">
+                    <div class="module-icon">
+                        <svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <!-- Libro de registro -->
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor"/>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor"/>
+                            <!-- Líneas de registro -->
+                            <line x1="8" y1="7" x2="16" y1="7" stroke="currentColor"/>
+                            <line x1="8" y1="11" x2="16" y1="11" stroke="currentColor"/>
+                            <line x1="8" y1="15" x2="13" y1="15" stroke="currentColor"/>
+                            <!-- Check de validación -->
+                            <path d="M17 11l-2 2 2 2" stroke="currentColor"/>
+                            <path d="M19 13h-4" stroke="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3>Registro de Transacciones</h3>
+                </div>
+                <div class="module-content">
+                    <p>Asignar pagos a ítems de presupuestos cerrados con validación de saldos y trazabilidad completa</p>
+                    <a href="{% url 'presupuestos:crear_transaccion_simple' %}" class="action-button create-button module-access-button">
+                        ACCEDER
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
